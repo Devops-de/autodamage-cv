@@ -105,23 +105,28 @@ autodamage-cv/
 ├── app/
 │   ├── main.py                  # FastAPI web server and REST endpoints
 │   ├── core/
+│   │   ├── cache.py             # 64-bit dHash perceptual caching & thread pool
 │   │   └── config.py            # Hourly rates, tax rates, and thresholds
 │   ├── cv_engine/
 │   │   ├── base.py              # Abstract detector interface & Pydantic schemas
 │   │   ├── classical_detector.py# OpenCV edge detection & color segmentation
-│   │   └── future_ai_detector.py# Extension stub for ML models
+│   │   ├── future_ai_detector.py# Extension stub for ML models
+│   │   └── image_validator.py   # Pre-flight vehicle surface validation filter
 │   ├── estimator/
-│   │   ├── parts_catalog.py     # OEM vs aftermarket parts catalog
-│   │   └── cost_engine.py       # Actuarial repair calculation engine
+│   │   ├── cost_engine.py       # Actuarial repair calculation engine
+│   │   ├── parts_catalog.py     # OEM vs aftermarket parts & material multipliers
+│   │   └── regional_rates.py    # 5-digit US ZIP code prevailing wage index
 │   ├── reports/
 │   │   └── pdf_generator.py     # PDF appraisal report generator (fpdf2)
 │   └── static/                  # Web dashboard (HTML, Tailwind CSS, JS)
-├── tests/                       # Pytest test suite
+├── tests/                       # Pytest test suite (21 automated tests)
 │   ├── conftest.py              # Test path setup
 │   ├── test_cv_detector.py      # OpenCV detection & determinism tests
 │   ├── test_estimator.py        # Repair vs replace & pricing logic tests
-│   └── test_pdf.py              # PDF compilation tests
-├── cli.py                       # Command-line inspection tool
+│   ├── test_pdf.py              # PDF compilation tests
+│   ├── test_performance_and_actuarial.py # Regional rates, blend rule, dHash cache
+│   └── test_validator.py        # Vehicle image validation & guardrail tests
+├── cli.py                       # Command-line inspection tool (--zip, --blend)
 ├── generate_samples.py          # Generates sample damage images for testing
 ├── Dockerfile                   # Multi-stage Docker container build
 ├── requirements.txt             # Python dependencies
