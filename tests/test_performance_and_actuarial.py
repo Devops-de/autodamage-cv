@@ -2,11 +2,10 @@
 Unit tests for Actuarial Precision (Regional Rates, Mitchell 50% Blend, Material Multipliers)
 and Backend Performance (Perceptual Hashing & In-Memory Cache).
 """
-import pytest
-from app.cv_engine.base import DamageAnalysisResult, DamageType, DetectedDamageItem, Severity, BoundingBox
-from app.estimator.cost_engine import EstimateCalculator, RecommendedAction
-from app.estimator.regional_rates import lookup_regional_market
+
 from app.core.cache import PerceptualImageCache
+from app.cv_engine.base import BoundingBox, DamageAnalysisResult, DamageType, DetectedDamageItem, Severity
+from app.estimator.cost_engine import EstimateCalculator
 
 
 def make_sample_damage_analysis(area_cm2: float = 45.0) -> DamageAnalysisResult:
@@ -56,17 +55,13 @@ def test_mitchell_adjacent_panel_blend_rule():
     analysis = make_sample_damage_analysis(area_cm2=50.0)
 
     # Without blend
-    est_no_blend = EstimateCalculator.calculate(
-        analysis, panel_id="FRONT_FENDER_LEFT", blend_adjacent_panels=False
-    )
+    est_no_blend = EstimateCalculator.calculate(analysis, panel_id="FRONT_FENDER_LEFT", blend_adjacent_panels=False)
     assert est_no_blend.adjacent_blend_applied is False
     blend_items_none = [it for it in est_no_blend.line_items if "Adjacent blend" in it.description]
     assert len(blend_items_none) == 0
 
     # With blend
-    est_blend = EstimateCalculator.calculate(
-        analysis, panel_id="FRONT_FENDER_LEFT", blend_adjacent_panels=True
-    )
+    est_blend = EstimateCalculator.calculate(analysis, panel_id="FRONT_FENDER_LEFT", blend_adjacent_panels=True)
     assert est_blend.adjacent_blend_applied is True
     blend_items = [it for it in est_blend.line_items if "Adjacent blend" in it.description]
     assert len(blend_items) > 0
@@ -88,29 +83,169 @@ def test_aluminum_material_multiplier():
 
 
 def test_perceptual_dhash_and_cache():
-    """Perceptual difference hash (dHash) should cache and retrieve duplicate analysis in sub-ms."""
+    """Perceptual difference hash (dHash) combined with SHA-256 caches and retrieves in sub-ms."""
     with open("app/static/sample_images/sample_bumper_scratch.jpg", "rb") as f:
         img_bytes = f.read()
 
-    # 1. Compute dHash
+    # 1. Compute SHA-256 and dHash
+    sha256 = PerceptualImageCache.compute_sha256(img_bytes)
     dhash = PerceptualImageCache.compute_dhash(img_bytes)
+    assert len(sha256) == 64
     assert len(dhash) == 16
     assert dhash != "0" * 16
 
     # 2. Cache miss initially
-    assert PerceptualImageCache.get_analysis(
-        dhash, "FRONT_BUMPER", 0.55, True, 500.0, False, None
-    ) is None
+    assert (
+        PerceptualImageCache.get_analysis(
+            sha256=sha256,
+            dhash=dhash,
+            panel_id="FRONT_BUMPER",
+            sensitivity=0.55,
+            detect_scratches=True,
+            detect_dents=True,
+            min_defect_area_pixels=150,
+            use_oem=True,
+            deductible=500.0,
+            blend=False,
+            zip_code=None,
+        )
+        is None
+    )
 
     # 3. Store mock payload
     mock_payload = {"success": True, "cached_key": "test_123"}
     PerceptualImageCache.set_analysis(
-        dhash, "FRONT_BUMPER", 0.55, True, 500.0, False, None, mock_payload
+        sha256=sha256,
+        dhash=dhash,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.55,
+        detect_scratches=True,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.0,
+        blend=False,
+        zip_code=None,
+        data=mock_payload,
     )
 
     # 4. Cache hit
     cached = PerceptualImageCache.get_analysis(
-        dhash, "FRONT_BUMPER", 0.55, True, 500.0, False, None
+        sha256=sha256,
+        dhash=dhash,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.55,
+        detect_scratches=True,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.0,
+        blend=False,
+        zip_code=None,
     )
     assert cached is not None
     assert cached["cached_key"] == "test_123"
+
+
+def test_cache_keys_preserve_parameter_precision_no_collision():
+    """Verify distinct cache keys for precise deductible cents, sensitivity decimals, and options."""
+    sha = "a" * 64
+    dh = "b" * 16
+
+    key_base = PerceptualImageCache._make_analysis_key(
+        sha256=sha,
+        dhash=dh,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.5000,
+        detect_scratches=True,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.00,
+        blend=False,
+        zip_code="94103",
+    )
+
+    # Different deductible in cents ($500.00 vs $500.50) must NOT collide
+    key_diff_deductible = PerceptualImageCache._make_analysis_key(
+        sha256=sha,
+        dhash=dh,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.5000,
+        detect_scratches=True,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.50,
+        blend=False,
+        zip_code="94103",
+    )
+    assert key_base != key_diff_deductible
+
+    # Different sensitivity (0.5000 vs 0.5050) must NOT collide
+    key_diff_sensitivity = PerceptualImageCache._make_analysis_key(
+        sha256=sha,
+        dhash=dh,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.5050,
+        detect_scratches=True,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.00,
+        blend=False,
+        zip_code="94103",
+    )
+    assert key_base != key_diff_sensitivity
+
+    # Different scratch flag must NOT collide
+    key_diff_scratches = PerceptualImageCache._make_analysis_key(
+        sha256=sha,
+        dhash=dh,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.5000,
+        detect_scratches=False,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.00,
+        blend=False,
+        zip_code="94103",
+    )
+    assert key_base != key_diff_scratches
+
+    # Different SHA-256 must NOT collide even if dHash is identical
+    key_diff_sha = PerceptualImageCache._make_analysis_key(
+        sha256="c" * 64,
+        dhash=dh,
+        panel_id="FRONT_BUMPER",
+        sensitivity=0.5000,
+        detect_scratches=True,
+        detect_dents=True,
+        min_defect_area_pixels=150,
+        use_oem=True,
+        deductible=500.00,
+        blend=False,
+        zip_code="94103",
+    )
+    assert key_base != key_diff_sha
+
+
+def test_cache_deepcopy_isolates_nested_state():
+    """Mutating a retrieved cache entry must not corrupt nested dicts inside the LRU cache."""
+    PerceptualImageCache.clear()
+    sha = "d" * 64
+    dh = "e" * 16
+    payload = {"is_valid": True, "diagnostics": {"cache_hit": False}}
+
+    PerceptualImageCache.set_validation(sha256=sha, dhash=dh, panel_id="FRONT_BUMPER", data=payload)
+    first_read = PerceptualImageCache.get_validation(sha256=sha, dhash=dh, panel_id="FRONT_BUMPER")
+    assert first_read is not None
+    assert first_read["diagnostics"]["cache_hit"] is False
+
+    # Mutate caller's dict after retrieval
+    first_read["diagnostics"]["cache_hit"] = True
+
+    second_read = PerceptualImageCache.get_validation(sha256=sha, dhash=dh, panel_id="FRONT_BUMPER")
+    assert second_read is not None
+    assert second_read["diagnostics"]["cache_hit"] is False

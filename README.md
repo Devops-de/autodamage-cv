@@ -3,7 +3,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.10+-5C3EE8.svg?logo=opencv&logoColor=white)](https://opencv.org/)
-[![Tests](https://img.shields.io/badge/pytest-28%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-41%20passed-success.svg)](tests/)
+[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Architecture](https://img.shields.io/badge/architecture-Zero--GPU%20%7C%20CPU--Only-orange.svg)](#core-philosophy)
 
@@ -25,9 +26,10 @@ No GPU required, no external API keys, and no black-box predictions.
 | **Estimating Standard** | US Industry Collision Standards (Mitchell / CCC ONE guidelines) |
 | **Execution Latency** | Sub-85ms on everyday standard CPU (zero GPU servers needed) |
 | **Concurrency Model** | Non-blocking CPU offloading via `asyncio.to_thread` |
-| **Caching & Deduplication** | 64-bit Perceptual Difference Hash (`dHash`) with thread-safe LRU cache |
+| **Caching & Deduplication** | Cryptographic SHA-256 + 64-bit Perceptual Difference Hash (`dHash`) with exact parameter precision |
+| **Memory Protections** | Memory-bounded chunked streaming (15MB max) and 4096px / 16MP decompression bomb defense |
 | **Regional Wage Indexing** | Dynamic 5-digit US ZIP lookup across 5 metropolitan wage tiers |
-| **Quality Verification** | 28 passing automated unit and integration tests (`pytest`) |
+| **Quality Verification** | 41 automated tests (`pytest`) + Ruff static analysis, formatting, and ground-truth benchmarks |
 
 ### Who Is This For?
 * **Vehicle Owners:** Get an immediate, realistic estimate before visiting a body shop or deciding whether to file an insurance claim.
@@ -211,32 +213,42 @@ python cli.py list-panels
 
 ---
 
-## Running Tests
+## Running Tests & Static Checks
 
-Run the test suite using pytest:
+ClaimScope maintains rigorous automated testing, static type checks, and formatting standards:
 
 ```bash
+# 1. Run full unit, integration, and ground-truth benchmark suite
 pytest -v
+
+# 2. Run Ruff linter and static analysis
+ruff check .
+
+# 3. Verify code formatting
+ruff format --check .
 ```
 
-All 28 tests run locally in ~2.5 seconds, verifying API schemas, regional wage rates, Mitchell blend rules, perceptual caching, image validation guardrails, edge extraction, and PDF generation.
+All 41 tests run locally in ~2–3 seconds, verifying API schemas, regional wage rates, Mitchell blend rules, collision-resistant perceptual caching, memory bounds, image validation guardrails, edge extraction, PDF generation, and labeled ground-truth actuarial benchmarks.
 
 ---
 
 ## Docker Deployment
 
-Build and run the containerized application:
+Build and run the containerized application using a clean, multi-stage production container:
 
 ```bash
 docker build -t claimscope .
 docker run -p 8000:8000 claimscope
 ```
 
+The production container runs under an unprivileged `claimscope` user, installs only runtime dependencies (excluding test harnesses), and delivers a minimal, secure attack surface.
+
 ---
 
-## Engineering Design & Trade-Offs
+## Engineering Design, Validation & Trade-Offs
 
-Detailed notes on architectural patterns, time and space complexity, and design choices can be found in [ARCHITECTURE.md](ARCHITECTURE.md).
+- **Architectural Patterns & Complexity:** See [ARCHITECTURE.md](ARCHITECTURE.md) for data flows, time/space complexity analysis, and memory management.
+- **Operational Design Domain & Actuarial Calibration:** See [VALIDATION.md](VALIDATION.md) for heuristic boundaries, physical limitations of classical CV, and calibration evidence against Mitchell collision repair standards.
 
 ---
 

@@ -5,6 +5,7 @@ Implements BaseDamageDetector so an object-detection or segmentation model
 (such as YOLOv8-seg, Mask R-CNN, or an ONNX runtime session) can be dropped
 in without changing the cost estimator, API routes, or web UI.
 """
+
 from app.cv_engine.base import (
     BaseDamageDetector,
     DamageAnalysisResult,

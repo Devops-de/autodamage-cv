@@ -178,7 +178,8 @@ async function handleFileSelected(file) {
     });
 
     if (!res.ok) {
-      throw new Error('Image validation request failed on server.');
+      const errData = await res.json().catch(() => null);
+      throw new Error(errData?.detail || 'Image validation request failed on server.');
     }
 
     const validation = await res.json();
@@ -387,21 +388,39 @@ function renderResults(analysis, estimate, telemetry) {
 
         const div = document.createElement('div');
         div.className = 'p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between text-xs';
-        div.innerHTML = `
-          <div class="flex items-center space-x-3">
-            <span class="font-mono text-slate-400 font-semibold">#${item.id}</span>
-            <div>
-              <div class="font-semibold text-slate-200">${item.details}</div>
-              <div class="text-[11px] text-slate-500">Box: [x:${item.bounding_box.x}, y:${item.bounding_box.y}, w:${item.bounding_box.width}, h:${item.bounding_box.height}]</div>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${badgeColor}">
-              ${item.severity}
-            </span>
-            <span class="text-slate-400 text-[11px] font-mono">Conf: ${(item.confidence_score * 100).toFixed(0)}%</span>
-          </div>
-        `;
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center space-x-3';
+
+        const idSpan = document.createElement('span');
+        idSpan.className = 'font-mono text-slate-400 font-semibold';
+        idSpan.textContent = `#${item.id}`;
+
+        const meta = document.createElement('div');
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'font-semibold text-slate-200';
+        detailsDiv.textContent = item.details;
+
+        const boxDiv = document.createElement('div');
+        boxDiv.className = 'text-[11px] text-slate-500';
+        boxDiv.textContent = `Box: [x:${item.bounding_box.x}, y:${item.bounding_box.y}, w:${item.bounding_box.width}, h:${item.bounding_box.height}]`;
+
+        meta.append(detailsDiv, boxDiv);
+        left.append(idSpan, meta);
+
+        const right = document.createElement('div');
+        right.className = 'flex items-center gap-2';
+
+        const sevSpan = document.createElement('span');
+        sevSpan.className = `px-2 py-0.5 rounded text-[11px] font-semibold border ${badgeColor}`;
+        sevSpan.textContent = item.severity;
+
+        const confSpan = document.createElement('span');
+        confSpan.className = 'text-slate-400 text-[11px] font-mono';
+        confSpan.textContent = `Conf: ${(item.confidence_score * 100).toFixed(0)}%`;
+
+        right.append(sevSpan, confSpan);
+        div.append(left, right);
         defectsList.appendChild(div);
       });
     }
@@ -445,13 +464,21 @@ function renderResults(analysis, estimate, telemetry) {
     estimate.line_items.forEach((item) => {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-800/30 transition';
-      tr.innerHTML = `
-        <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">${item.category}</td>
-        <td class="py-2.5 px-3 font-medium text-slate-200">${item.description}</td>
-        <td class="py-2.5 px-3 text-center text-slate-400">${item.quantity_or_hours.toFixed(1)}</td>
-        <td class="py-2.5 px-3 text-right text-slate-400">$${item.rate.toFixed(2)}</td>
-        <td class="py-2.5 px-3 text-right font-semibold text-slate-200">$${item.subtotal.toFixed(2)}</td>
-      `;
+
+      const cells = [
+        { cls: 'py-2.5 px-3 font-mono text-[11px] text-slate-400', text: item.category },
+        { cls: 'py-2.5 px-3 font-medium text-slate-200', text: item.description },
+        { cls: 'py-2.5 px-3 text-center text-slate-400', text: item.quantity_or_hours.toFixed(1) },
+        { cls: 'py-2.5 px-3 text-right text-slate-400', text: `$${item.rate.toFixed(2)}` },
+        { cls: 'py-2.5 px-3 text-right font-semibold text-slate-200', text: `$${item.subtotal.toFixed(2)}` },
+      ];
+      cells.forEach(({ cls, text }) => {
+        const td = document.createElement('td');
+        td.className = cls;
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+
       tbody.appendChild(tr);
     });
   }
@@ -584,10 +611,15 @@ function showToast(message, type = 'info') {
   const iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-triangle' : 'info';
 
   toast.className = `p-3 rounded-xl border shadow-2xl backdrop-blur-md flex items-center space-x-2.5 text-xs font-medium pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${bg}`;
-  toast.innerHTML = `
-    <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
-    <span class="flex-1">${message}</span>
-  `;
+  const iconEl = document.createElement('i');
+  iconEl.setAttribute('data-lucide', iconName);
+  iconEl.className = 'w-4 h-4 shrink-0';
+
+  const msgEl = document.createElement('span');
+  msgEl.className = 'flex-1';
+  msgEl.textContent = message;
+
+  toast.append(iconEl, msgEl);
 
   container.appendChild(toast);
   if (window.lucide) lucide.createIcons();

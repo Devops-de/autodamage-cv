@@ -2,31 +2,33 @@
 Unit tests for API response schemas, Pydantic serialization, and catalog conversions.
 Ensures strong typing and data integrity between backend algorithms and REST responses.
 """
+
 import pytest
-from app.main import health_check, get_panels, get_settings, get_regional_markets
+
+from app.cv_engine.base import (
+    BoundingBox,
+    DamageAnalysisResult,
+    DamageType,
+    DetectedDamageItem,
+    Severity,
+)
+from app.estimator.cost_engine import (
+    EstimateLineItem,
+    InsuranceEstimate,
+    RecommendedAction,
+)
+from app.estimator.parts_catalog import PANEL_CATALOG
+from app.main import get_panels, get_regional_markets, get_settings, health_check
 from app.schemas.api import (
+    AnalysisResponse,
+    ErrorResponse,
+    ExportPDFRequest,
     HealthResponse,
     PanelResponseItem,
     SettingsResponse,
-    ValidationResponse,
     TelemetryData,
-    AnalysisResponse,
-    ExportPDFRequest,
-    ErrorResponse,
+    ValidationResponse,
 )
-from app.cv_engine.base import (
-    DamageAnalysisResult,
-    DamageType,
-    Severity,
-    BoundingBox,
-    DetectedDamageItem,
-)
-from app.estimator.cost_engine import (
-    InsuranceEstimate,
-    RecommendedAction,
-    EstimateLineItem,
-)
-from app.estimator.parts_catalog import PANEL_CATALOG
 
 
 def test_health_check_endpoint():
@@ -173,3 +175,42 @@ def test_error_response_schema():
     )
     assert err.detail == "File format not supported"
     assert err.error_type == "VALIDATION_ERROR"
+
+
+def test_upload_bounded_reader_size_limit():
+    """Verify read_bounded_file rejects uploads exceeding max_upload_size_bytes with HTTP 413."""
+    from fastapi import HTTPException
+
+    from app.main import read_bounded_file
+
+    class ReadyFuture:
+        def __init__(self, value):
+            self.value = value
+
+        def __await__(self):
+            if False:
+                yield
+            return self.value
+
+    class MockUpload:
+        def __init__(self, chunks):
+            self.chunks = list(chunks)
+
+        def read(self, size=-1):
+            val = self.chunks.pop(0) if self.chunks else b""
+            return ReadyFuture(val)
+
+    # 1. Normal file under limit (2 chunks of 250KB = 500KB)
+    coro_small = read_bounded_file(MockUpload([b"x" * 250_000, b"y" * 250_000]))
+    try:
+        coro_small.send(None)
+    except StopIteration as e:
+        data = e.value
+    assert len(data) == 500_000
+
+    # 2. Oversized file (16 chunks of 1MB = 16MB > 15MB limit)
+    coro_large = read_bounded_file(MockUpload([b"x" * (1024 * 1024)] * 16))
+    with pytest.raises(HTTPException) as exc_info:
+        coro_large.send(None)
+    assert exc_info.value.status_code == 413
+    assert "exceeds maximum allowed file size" in exc_info.value.detail

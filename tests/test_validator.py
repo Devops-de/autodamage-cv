@@ -1,9 +1,10 @@
 """
 Unit tests for Vehicle and Panel Image Validation Filter.
 """
+
 import cv2
 import numpy as np
-import pytest
+
 from app.cv_engine.image_validator import VehicleImageValidator
 
 
@@ -98,19 +99,31 @@ def test_reject_clean_car_without_damage():
     result = VehicleImageValidator.validate(bytes(buf), panel_id="FRONT_BUMPER")
     assert result.is_valid is False
     assert result.rejection_reason is not None
-    assert ("no vehicle damage" in result.rejection_reason.lower()
-            or "defect detected" in result.rejection_reason.lower()
-            or "blurry" in result.rejection_reason.lower()
-            or "focus" in result.rejection_reason.lower())
+    assert (
+        "no vehicle damage" in result.rejection_reason.lower()
+        or "defect detected" in result.rejection_reason.lower()
+        or "blurry" in result.rejection_reason.lower()
+        or "focus" in result.rejection_reason.lower()
+    )
 
 
 def test_reject_multicolor_indoor_scene():
     """Multi-colored domestic scenes or furniture must be rejected."""
-    room = np.full((400, 400, 3), (40, 40, 180), dtype=np.uint8) # red wall
-    cv2.rectangle(room, (50, 100), (200, 300), (200, 100, 30), -1) # blue chair
-    cv2.rectangle(room, (250, 150), (380, 350), (40, 180, 50), -1) # green table
+    room = np.full((400, 400, 3), (40, 40, 180), dtype=np.uint8)  # red wall
+    cv2.rectangle(room, (50, 100), (200, 300), (200, 100, 30), -1)  # blue chair
+    cv2.rectangle(room, (250, 150), (380, 350), (40, 180, 50), -1)  # green table
     _, buf = cv2.imencode(".jpg", room)
 
     result = VehicleImageValidator.validate(bytes(buf), panel_id="FRONT_BUMPER")
     assert result.is_valid is False
     assert "indoor" in result.rejection_reason.lower() or "clutter" in result.rejection_reason.lower()
+
+
+def test_reject_oversized_image():
+    """Images exceeding maximum dimension or pixel budget must be rejected to prevent memory exhaustion."""
+    oversized = np.full((4097, 200, 3), 128, dtype=np.uint8)
+    _, buf = cv2.imencode(".jpg", oversized)
+
+    result = VehicleImageValidator.validate(bytes(buf), panel_id="FRONT_BUMPER")
+    assert result.is_valid is False
+    assert "maximum allowed limit" in result.rejection_reason.lower()

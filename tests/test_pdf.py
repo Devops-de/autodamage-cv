@@ -1,6 +1,7 @@
 """
 Tests for PDF report compilation.
 """
+
 from app.cv_engine.base import DamageAnalysisResult, Severity
 from app.estimator.cost_engine import EstimateCalculator
 from app.reports.pdf_generator import generate_estimate_pdf

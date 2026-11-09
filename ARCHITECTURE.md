@@ -57,9 +57,16 @@ The application is bundled into a single FastAPI service that serves both the JS
 
 For an MVP processing single-panel photos in under 100ms, splitting this into microservices would add unnecessary network hops, serialization overhead, and deployment complexity. If workload increases, the detection engine can be offloaded to an asynchronous worker queue (such as Celery with Redis) with minimal architectural changes.
 
-### 3. Synchronous Execution
+### 3. Synchronous Execution & Thread Offloading
 
-Because the OpenCV pipeline runs in under 90ms on standard CPUs, requests are handled synchronously in the HTTP request cycle rather than returning a job ID and polling. This keeps the client integration straightforward and eliminates the need for a separate database or cache for job status tracking.
+Because the OpenCV pipeline runs in under 90ms on standard CPUs, requests are handled in the HTTP request cycle without requiring long-polling job queues. To keep FastAPI's ASGI event loop responsive under concurrent traffic, heavy image processing and PDF compilation are offloaded to Python's default thread pool via `asyncio.to_thread`.
+
+### 4. Memory Protection & Collision-Resistant Caching
+
+- **Bounded Stream Reading:** Request payloads are streamed in memory-bounded 1MB buffers with an explicit 15MB ceiling (`HTTP 413 Payload Too Large`), preventing memory starvation from arbitrary upload sizes.
+- **Decompression Bomb Defense:** Decoded NumPy arrays are validated against a maximum dimension limit (4096×4096px) and total pixel budget (16 MP) before executing bilateral filtering or contour searches.
+- **Cryptographic & Perceptual Caching:** Analysis cache keys combine SHA-256 byte hashing with 64-bit difference hashing (`dHash`) and exact floating-point parameter precision (`{sensitivity:.4f}`, `{deductible:.2f}`, and all boolean flags), eliminating collisions between similar requests.
+- **Sanitized Error Boundaries:** Server exceptions are caught, logged with full stack traces internally, and mapped to safe, generic client-facing messages to avoid leaking implementation details.
 
 ---
 

@@ -2,13 +2,13 @@
 Unit and integration tests for the Actuarial Insurance Cost Estimator Engine.
 Tests decision logic (Repair vs Replace vs Polish), line-item math, and deductible bounds.
 """
-import pytest
+
 from app.cv_engine.base import (
+    BoundingBox,
     DamageAnalysisResult,
     DamageType,
     DetectedDamageItem,
     Severity,
-    BoundingBox,
 )
 from app.estimator.cost_engine import (
     EstimateCalculator,
@@ -77,9 +77,7 @@ def test_replace_panel_for_extensive_damage():
     heavy_damage_area = bumper.surface_area_cm2 * 0.40  # 40% surface damage
 
     analysis = make_dummy_analysis(total_area=heavy_damage_area, severity=Severity.SEVERE)
-    estimate = EstimateCalculator.calculate(
-        analysis, panel_id="FRONT_BUMPER", use_oem_parts=True, deductible=500.0
-    )
+    estimate = EstimateCalculator.calculate(analysis, panel_id="FRONT_BUMPER", use_oem_parts=True, deductible=500.0)
 
     assert estimate.recommended_action == RecommendedAction.REPLACE_PANEL
     assert estimate.parts_subtotal == bumper.oem_part_price
@@ -96,3 +94,12 @@ def test_windshield_always_replaced():
 
     assert estimate.recommended_action == RecommendedAction.REPLACE_PANEL
     assert "windshield" in estimate.action_reason.lower()
+
+
+def test_negative_deductible_is_clamped():
+    """Negative deductibles must be clamped to zero so net payout never exceeds gross total."""
+    analysis = make_dummy_analysis(total_area=60.0, severity=Severity.MODERATE)
+    estimate = EstimateCalculator.calculate(analysis, panel_id="FRONT_BUMPER", deductible=-200.0)
+
+    assert estimate.deductible == 0.0
+    assert estimate.net_claim_payout == estimate.gross_estimate_total

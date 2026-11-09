@@ -2,19 +2,19 @@
 Unit tests for the Classical Computer Vision Engine.
 Tests image decoding, edge/contour extraction, and mathematical reproducibility.
 """
-import os
+
 import cv2
 import numpy as np
 import pytest
 
+from app.cv_engine.base import DamageType, DetectionOptions
 from app.cv_engine.classical_detector import ClassicalDamageDetector
-from app.cv_engine.base import DetectionOptions, Severity, DamageType
 
 
 @pytest.fixture
 def sample_scratch_image():
     """Generates a known synthetic image with a scratch line in memory."""
-    img = np.full((400, 400, 3), (30, 30, 180), dtype=np.uint8) # Dark red panel
+    img = np.full((400, 400, 3), (30, 30, 180), dtype=np.uint8)  # Dark red panel
     # Draw high-contrast scratch
     cv2.line(img, (100, 100), (300, 300), (240, 240, 240), thickness=4)
     _, buf = cv2.imencode(".jpg", img)
@@ -24,7 +24,7 @@ def sample_scratch_image():
 @pytest.fixture
 def clean_undamaged_image():
     """Generates a pristine, undamaged panel image in memory."""
-    img = np.full((400, 400, 3), (120, 120, 120), dtype=np.uint8) # Flat grey
+    img = np.full((400, 400, 3), (120, 120, 120), dtype=np.uint8)  # Flat grey
     _, buf = cv2.imencode(".jpg", img)
     return bytes(buf)
 
@@ -60,3 +60,13 @@ def test_detector_reproducibility(sample_scratch_image):
     assert res1.total_damaged_area_cm2 == res2.total_damaged_area_cm2
     assert len(res1.items_detected) == len(res2.items_detected)
     assert res1.overall_severity == res2.overall_severity
+
+
+def test_detector_rejects_oversized_image():
+    """Detector must enforce maximum resolution limit to prevent CPU/memory exhaustion."""
+    detector = ClassicalDamageDetector()
+    oversized = np.full((4097, 200, 3), 128, dtype=np.uint8)
+    _, buf = cv2.imencode(".jpg", oversized)
+
+    with pytest.raises(ValueError, match="exceed maximum allowed resolution limit"):
+        detector.detect(bytes(buf), DetectionOptions(target_panel="FRONT_BUMPER"))

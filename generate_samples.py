@@ -1,7 +1,9 @@
 """
 Generates clean, realistic synthetic car panel test images with scratches and dents.
 """
+
 import os
+
 import cv2
 import numpy as np
 

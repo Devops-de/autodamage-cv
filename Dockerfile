@@ -1,33 +1,43 @@
-# Production-Ready Multi-Stage Python Container
-FROM python:3.12-slim
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+# Production Multi-Stage Python Container for ClaimScope
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies needed for OpenCV headless
+COPY requirements.txt .
+
+# Filter out developer and test tooling (pytest, ruff) for lean runtime build
+RUN grep -v -E "^(pytest|ruff)" requirements.txt > requirements-prod.txt && \
+    pip install --no-cache-dir --user -r requirements-prod.txt
+
+FROM python:3.12-slim AS runner
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CLAIMSCOPE_HOST=0.0.0.0 \
+    PATH="/home/claimscope/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Install minimal OS runtime libraries required by OpenCV headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependencies and install
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt pytest
+# Run as non-root service user for container security
+RUN groupadd -r claimscope && useradd -r -g claimscope -d /home/claimscope -m claimscope
 
-# Copy application source code
-COPY . .
+# Copy installed Python packages from builder stage
+COPY --from=builder /root/.local /home/claimscope/.local
 
-# Generate sample test images
+# Copy application source tree
+COPY --chown=claimscope:claimscope . .
+
+USER claimscope
+
+# Pre-generate sample images for immediate local verification
 RUN python generate_samples.py
 
-# Run unit tests during container build to verify integrity
-RUN python -m pytest tests/
-
-# Expose web service port
 EXPOSE 8000
 
-# Run FastAPI server
 CMD ["python", "run.py"]

@@ -2,24 +2,24 @@
 Vehicle Panels and Parts Pricing Catalog.
 Standard US Collision Repair baseline data (OEM and Certified Aftermarket parts).
 """
-from typing import Dict, List
+
 from pydantic import BaseModel, Field
 
 
 class PanelInfo(BaseModel):
     panel_id: str
     name: str
-    material: str                        # "Steel", "Aluminum", "Plastic / Polyurethane"
-    surface_area_cm2: float              # Approximate total surface area
-    oem_part_price: float                # Original Equipment Manufacturer part price ($)
-    aftermarket_part_price: float        # CAPA / Aftermarket alternative price ($)
-    r_and_i_labor_hours: float           # Remove & Install labor hours
-    standard_paint_refinish_hours: float # Base refinish spray hours
-    material_labor_multiplier: float = 1.0 # Aluminum/high-strength steel tooling surcharge
-    adjacent_panels: List[str] = Field(default_factory=list) # Neighboring panels for 50% blend rule
+    material: str  # "Steel", "Aluminum", "Plastic / Polyurethane"
+    surface_area_cm2: float  # Approximate total surface area
+    oem_part_price: float  # Original Equipment Manufacturer part price ($)
+    aftermarket_part_price: float  # CAPA / Aftermarket alternative price ($)
+    r_and_i_labor_hours: float  # Remove & Install labor hours
+    standard_paint_refinish_hours: float  # Base refinish spray hours
+    material_labor_multiplier: float = 1.0  # Aluminum/high-strength steel tooling surcharge
+    adjacent_panels: list[str] = Field(default_factory=list)  # Neighboring panels for 50% blend rule
 
 
-PANEL_CATALOG: Dict[str, PanelInfo] = {
+PANEL_CATALOG: dict[str, PanelInfo] = {
     "FRONT_BUMPER": PanelInfo(
         panel_id="FRONT_BUMPER",
         name="Front Bumper Cover",
@@ -53,7 +53,7 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=380.00,
         r_and_i_labor_hours=2.5,
         standard_paint_refinish_hours=3.5,
-        material_labor_multiplier=1.25, # Specialized aluminum tooling surcharge
+        material_labor_multiplier=1.25,  # Specialized aluminum tooling surcharge
         adjacent_panels=["FRONT_FENDER_LEFT", "FRONT_FENDER_RIGHT", "FRONT_BUMPER"],
     ),
     "FRONT_FENDER_LEFT": PanelInfo(
@@ -89,7 +89,7 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=440.00,
         r_and_i_labor_hours=3.2,
         standard_paint_refinish_hours=3.4,
-        material_labor_multiplier=1.15, # High-strength steel cold repair surcharge
+        material_labor_multiplier=1.15,  # High-strength steel cold repair surcharge
         adjacent_panels=["FRONT_FENDER_LEFT"],
     ),
     "PASSENGER_FRONT_DOOR": PanelInfo(
@@ -101,7 +101,7 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=440.00,
         r_and_i_labor_hours=3.2,
         standard_paint_refinish_hours=3.4,
-        material_labor_multiplier=1.15, # High-strength steel cold repair surcharge
+        material_labor_multiplier=1.15,  # High-strength steel cold repair surcharge
         adjacent_panels=["FRONT_FENDER_RIGHT"],
     ),
     "TRUNK_TAILGATE": PanelInfo(

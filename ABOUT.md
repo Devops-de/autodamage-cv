@@ -35,7 +35,7 @@ ClaimScope bridges the gap between image processing and insurance appraisal:
 * **Strategy Pattern (`app/cv_engine/base.py`):** The detection layer implements an abstract `BaseDamageDetector` interface, cleanly decoupling signal processing from pricing logic. A machine learning model (such as YOLOv8-seg) can be dropped in during future development without rewriting the financial rules or UI.
 * **Pre-Flight Filter (`app/cv_engine/image_validator.py`):** Multi-stage validation checking resolution, lighting exposure, white document variance, human skin tone in YCrCb, focus via Laplacian variance & Sobel gradient magnitude, LAB chrominance uniformity, and damage contour presence.
 * **Non-Blocking CPU Concurrency:** All heavy OpenCV calculations and PDF generation are offloaded to worker threads via `asyncio.to_thread()`, keeping FastAPI's event loop unblocked for high concurrent throughput.
-* **Sub-Millisecond Perceptual Caching (`app/core/cache.py`):** Uses 64-bit difference hashing (dHash) to store and retrieve repeat damage inspections in under 2ms.
+* **Sub-Millisecond Collision-Proof Caching (`app/core/cache.py`):** Combines SHA-256 byte digests, 64-bit difference hashing (dHash), and exact parameter keys to retrieve repeat damage inspections without collisions.
 * **Three Access Channels:**
   * **Web Dashboard:** An interactive browser interface with 1-click test scenarios, sensitivity sliders, ZIP code wage lookups, adjacent blend toggles, and cache telemetry.
   * **Command-Line Interface (`cli.py`):** A headless CLI tool for terminal workflows, automated scripting, and batch appraisal generation with `--zip` and `--blend` flags.
@@ -45,7 +45,7 @@ ClaimScope bridges the gap between image processing and insurance appraisal:
 ---
 
 ## Project Status & Metrics
-* **Test Suite:** 28 passing `pytest` tests covering API schemas, regional wages, Mitchell blend rules, perceptual caching, input guardrails, and deterministic pricing.
-* **CI/CD:** Automated GitHub Actions pipeline verifying builds and test suites on every push.
-* **Containerization:** Multi-stage `Dockerfile` with automated test verification during container build.
+* **Test Suite:** 41 passing `pytest` tests covering API schemas, regional wages, Mitchell blend rules, collision-resistant caching, upload bounds, input guardrails, deterministic pricing, and benchmark calibration.
+* **CI/CD:** Automated GitHub Actions pipeline running Ruff lint/format checks, pytest tests, and CLI verification on every push.
+* **Containerization:** Multi-stage production `Dockerfile` running as an unprivileged `claimscope` user without test harnesses.
 * **License:** Dual-licensed under the MIT License and Apache License 2.0.
