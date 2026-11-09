@@ -120,7 +120,7 @@ The pricing engine uses standardized US collision repair rules:
 ## Project Structure
 
 ```
-autodamage-cv/
+claimscope/
 ├── app/
 │   ├── main.py                  # FastAPI web server and REST endpoints
 │   ├── core/
@@ -169,8 +169,8 @@ autodamage-cv/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Devops-de/autodamage-cv.git
-   cd autodamage-cv
+   git clone https://github.com/Devops-de/claimscope.git
+   cd claimscope
    ```
 
 2. Install dependencies:
@@ -228,8 +228,8 @@ All 28 tests run locally in ~2.5 seconds, verifying API schemas, regional wage r
 Build and run the containerized application:
 
 ```bash
-docker build -t autodamage-cv .
-docker run -p 8000:8000 autodamage-cv
+docker build -t claimscope .
+docker run -p 8000:8000 claimscope
 ```
 
 ---
