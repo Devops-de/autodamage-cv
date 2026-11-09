@@ -2,7 +2,7 @@
 
 ## System Design
 
-AutoDamage CV follows the Strategy Pattern to decouple image processing from repair cost estimation. The system is split into three main layers:
+ClaimScope follows the Strategy Pattern to decouple image processing from repair cost estimation. The system is split into three main layers:
 
 1. **Detection Layer (`app/cv_engine`):** Takes raw image bytes, isolates damaged regions, and returns bounding boxes, defect types, and surface area in cm². It exposes a common interface (`BaseDamageDetector`) so alternative detection backends can be swapped in without modifying downstream code.
 2. **Estimation Layer (`app/estimator`):** Consumes the detection results and applies industry repair guidelines (labor rates, paint refinishing standards, replacement thresholds) to produce an itemized invoice.

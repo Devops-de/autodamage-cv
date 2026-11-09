@@ -1,5 +1,5 @@
 """
-Main FastAPI Application for AutoDamage CV.
+Main FastAPI Application for ClaimScope.
 Provides RESTful endpoints for vehicle damage detection, actuarial calculation,
 and insurance PDF appraisal generation.
 """
@@ -31,7 +31,7 @@ from app.schemas.api import (
     ExportPDFRequest,
 )
 
-logger = logging.getLogger("autodamage_cv")
+logger = logging.getLogger("claimscope")
 
 app = FastAPI(
     title=settings.app_name,
@@ -281,7 +281,7 @@ async def export_pdf(payload: ExportPDFRequest):
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename=Damage_Appraisal_{payload.estimate.claim_id}.pdf"
+                "Content-Disposition": f"attachment; filename=ClaimScope_Appraisal_{payload.estimate.claim_id}.pdf"
             },
         )
     except Exception as e:

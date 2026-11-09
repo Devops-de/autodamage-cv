@@ -1,5 +1,5 @@
 """
-Export centralized schemas for AutoDamage CV.
+Export centralized schemas for ClaimScope.
 """
 from app.schemas.api import (
     HealthResponse,

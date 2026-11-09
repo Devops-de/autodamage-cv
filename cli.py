@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AutoDamage CV - Terminal Command Line Interface (CLI)
+ClaimScope - Terminal Command Line Interface (CLI)
 Allows insurance adjusters and engineers to inspect vehicle photos and generate
 estimates directly from the command line.
 """
@@ -16,7 +16,7 @@ from app.estimator.parts_catalog import PANEL_CATALOG
 
 def main():
     parser = argparse.ArgumentParser(
-        description="AutoDamage CV: Vehicle Damage Inspection & Repair Cost Estimator CLI",
+        description="ClaimScope: Vehicle Damage Inspection & Repair Cost Estimator CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

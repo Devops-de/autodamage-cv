@@ -1,9 +1,9 @@
-# Project Summary: AutoDamage CV
+# Project Summary: ClaimScope
 
 ## Overview
-**AutoDamage CV** is an open-source vehicle damage inspection and collision repair cost estimator. It analyzes digital photographs of car panels, identifies surface defects such as scratches, dents, and paint abrasions, measures the damaged area, and generates an itemized repair estimate using real-world collision industry standards.
+**ClaimScope** is an open-source vehicle damage inspection and collision repair cost estimator. It analyzes digital photographs of car panels, identifies surface defects such as scratches, dents, and paint abrasions, measures the damaged area, and generates an itemized repair estimate using real-world collision industry standards.
 
-Unlike typical automated claims demos that rely on opaque neural networks and expensive GPU hosting, AutoDamage CV uses **classical computer vision (OpenCV)** and **transparent actuarial rules (Mitchell / CCC ONE guidelines)** to produce explainable, verifiable appraisals in under 90 milliseconds on a standard CPU.
+Unlike typical automated claims demos that rely on opaque neural networks and expensive GPU hosting, ClaimScope uses **classical computer vision (OpenCV)** and **transparent actuarial rules (Mitchell / CCC ONE guidelines)** to produce explainable, verifiable appraisals in under 90 milliseconds on a standard CPU.
 
 ---
 
@@ -16,7 +16,7 @@ Getting a repair estimate after an accident or parking lot scrape is traditional
 ---
 
 ## The Solution
-AutoDamage CV bridges the gap between image processing and insurance appraisal:
+ClaimScope bridges the gap between image processing and insurance appraisal:
 * **Pre-Flight Input Guardrails:** Before inspection begins, a classical CV verification filter validates that the photo depicts an authentic vehicle body panel with visible damage. It actively rejects non-car photos (selfies, documents, invoices, blur, domestic clutter, and undamaged cars), preventing invalid files from entering the pipeline.
 * **Panel-Specific Material Intelligence:** Differentiates between flexible molded polyurethane plastic (front/rear bumper covers) and rigid sheet metal/aluminum (hoods, doors, fenders), validating the specific surface texture and damage pattern.
 * **Measurable Damage Extraction:** Instead of guessing severity, the computer vision pipeline extracts concrete pixel gradients and boundary contours, mapping them to physical area in square centimeters (cm²).

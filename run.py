@@ -1,12 +1,12 @@
 """
-Entry point to launch the AutoDamage CV application.
+Entry point to launch the ClaimScope application.
 Runs Uvicorn web server hosting FastAPI backend and static frontend.
 """
 import uvicorn
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("  AutoDamage CV - Vehicle Damage & Estimate Engine")
+    print("  ClaimScope - Vehicle Damage & Collision Appraisal Engine")
     print("  Backend: OpenCV Signal Processing Pipeline")
     print("  Actuarial Standards: Mitchell / CCC ONE US Collision Guidelines")
     print("=" * 70)

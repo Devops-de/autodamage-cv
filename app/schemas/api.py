@@ -1,5 +1,5 @@
 """
-Pydantic API Schemas for AutoDamage CV REST Endpoints.
+Pydantic API Schemas for ClaimScope REST Endpoints.
 Provides strict validation, serialization, and OpenAPI documentation schemas.
 """
 from typing import Optional, Dict, Any, List

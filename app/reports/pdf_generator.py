@@ -19,14 +19,14 @@ class PDFReport(FPDF):
         self.set_font('Helvetica', 'B', 14)
         self.cell(0, 10, 'MOTOR VEHICLE DAMAGE APPRAISAL REPORT', align='C', new_x="LMARGIN", new_y="NEXT")
         self.set_font('Helvetica', 'I', 8)
-        self.cell(0, 0, 'Standard US Collision Repair & Actuarial Audit - Generated via AutoDamage CV Engine', align='C', new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 0, 'Standard US Collision Repair & Actuarial Audit - Generated via ClaimScope Engine', align='C', new_x="LMARGIN", new_y="NEXT")
         self.ln(12)
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Helvetica', 'I', 8)
         self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f'Page {self.page_no()} | AutoDamage-CV Deterministic Appraisal | Strictly Confidential', align='C')
+        self.cell(0, 10, f'Page {self.page_no()} | ClaimScope Deterministic Appraisal | Strictly Confidential', align='C')
 
 
 def clean_text(s: str) -> str:

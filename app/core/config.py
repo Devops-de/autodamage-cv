@@ -15,7 +15,7 @@ class RepairLaborRates(BaseModel):
 
 
 class Settings(BaseModel):
-    app_name: str = "AutoDamage CV - Vehicle Damage & Estimate Engine"
+    app_name: str = "ClaimScope - Vehicle Damage & Collision Appraisal Engine"
     version: str = "1.0.0"
     rates: RepairLaborRates = RepairLaborRates()
     # Threshold: if damaged area exceeds 30% of panel area or 250 cm², recommend replacement

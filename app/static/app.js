@@ -1,5 +1,5 @@
 /**
- * AutoDamage CV - Frontend Application Controller
+ * ClaimScope - Frontend Application Controller
  * Handles image upload validation, OpenCV signal processing requests,
  * and actuarial collision repair estimate rendering.
  */
@@ -546,7 +546,7 @@ async function downloadAppraisalPDF() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Damage_Appraisal_${AppState.currentEstimate.claim_id}.pdf`;
+    a.download = `ClaimScope_Appraisal_${AppState.currentEstimate.claim_id}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();

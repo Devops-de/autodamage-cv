@@ -1,4 +1,4 @@
-# AutoDamage CV
+# ClaimScope
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Architecture](https://img.shields.io/badge/architecture-Zero--GPU%20%7C%20CPU--Only-orange.svg)](#core-philosophy)
 
-A fast, transparent vehicle damage inspection tool and repair cost estimator. Upload a photo of a damaged car panel, and AutoDamage CV detects scratches, dents, and paint abrasions using OpenCV, measures the damaged area, and generates an itemized repair appraisal based on standard collision repair rates.
+A fast, transparent vehicle damage inspection tool and collision repair cost estimator. Upload a photo of a damaged car panel, and ClaimScope detects scratches, dents, and paint abrasions using OpenCV, measures the damaged area, and generates an itemized repair appraisal based on standard collision repair rates.
 
 No GPU required, no external API keys, and no black-box predictions.
 
@@ -15,7 +15,7 @@ No GPU required, no external API keys, and no black-box predictions.
 
 ## About the Project
 
-**AutoDamage CV** is an open-source InsurTech tool designed to take the guesswork out of vehicle repair estimates after minor accidents. By analyzing photos of damaged car panels, it maps out scratches, dents, and surface abrasions, calculates physical damaged area in square centimeters, and generates an itemized repair cost breakdown based on audited US collision repair rates.
+**ClaimScope** is an open-source InsurTech tool designed to take the guesswork out of vehicle repair estimates after minor accidents. By analyzing photos of damaged car panels, it maps out scratches, dents, and surface abrasions, calculates physical damaged area in square centimeters, and generates an itemized repair cost breakdown based on audited US collision repair rates.
 
 ### System Specifications at a Glance
 
@@ -51,7 +51,7 @@ Most tech demos in this space try to solve this by immediately throwing a massiv
 - If an adjuster marks a door panel for a \$700 replacement instead of a \$250 repair, they need to justify why (e.g. damage exceeds 28% of the surface area or involves structural tearing).
 - If a customer asks how paint labor was estimated, the shop needs to point to standardized refinish formulas, not a neural network confidence score.
 
-**AutoDamage CV** bridges that gap:
+**ClaimScope** bridges that gap:
 1. It uses classical computer vision (edge detection, color space thresholding, and contour analysis) to find visible surface defects in **under 90ms on standard CPUs**.
 2. It feeds those measurements directly into an actuarial pricing engine based on standard US collision repair guidelines (Mitchell / CCC ONE), producing a transparent line-item invoice and downloadable PDF appraisal report.
 
@@ -77,7 +77,7 @@ Most tech demos in this space try to solve this by immediately throwing a massiv
 ```
 
 ### 1. Smart Pre-Flight Validation Filter
-Before processing an image, AutoDamage CV validates that the upload is a clear photo of a vehicle body panel with visible damage:
+Before processing an image, ClaimScope validates that the upload is a clear photo of a vehicle body panel with visible damage:
 * **Vehicle Panel Only:** Verifies automotive paint continuity and chrominance consistency in LAB color space, blocking non-automotive images like domestic rooms, furniture, pets, or clothing.
 * **Damage Presence Check:** Verifies that the photo actually contains detectable surface anomalies (scratches, dents, cracks, or paint chips). Completely undamaged cars or flat textures are caught upfront.
 * **Bumper Section Awareness:** Specifically checks bumper properties (flexible molded polyurethane plastic vs. sheet metal) to ensure the photo matches the selected repair section.
