@@ -48,6 +48,10 @@
       </div>
 
       <div class="flex items-center space-x-3">
+        <button id="btn-about" class="text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-medium transition cursor-pointer flex items-center gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span>About</span>
+        </button>
         <div class="hidden md:flex items-center space-x-2 text-xs bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300">
           <i data-lucide="calculator" class="w-4 h-4 text-sky-400"></i>
           <span>Standard: Mitchell / CCC ONE Guidelines</span>
@@ -403,6 +407,56 @@
       <p class="text-[11px] text-slate-600">Built with OpenCV, FastAPI, and fpdf2</p>
     </div>
   </footer>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">About AutoDamage CV</h3>
+            <p class="text-xs text-slate-400">Vehicle Inspection & Repair Cost Estimator</p>
+          </div>
+        </div>
+        <button id="btn-close-about" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <p>
+          <strong class="text-white">AutoDamage CV</strong> is an open-source tool designed to take the guesswork out of vehicle repair estimates after minor accidents. By analyzing photos of damaged car panels, it maps out scratches, dents, and surface abrasions, estimates the physical damaged area, and generates an itemized repair cost breakdown based on standard US collision repair rates.
+        </p>
+
+        <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-1.5">
+          <h4 class="font-semibold text-sky-400 text-xs">Who is this for?</h4>
+          <ul class="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+            <li><strong>Vehicle Owners:</strong> Get an honest, preliminary repair estimate before visiting a body shop or filing an insurance claim.</li>
+            <li><strong>Insurance Adjusters:</strong> Fast first-notice-of-loss triage with mathematically verifiable damage metrics.</li>
+            <li><strong>Repair Shops:</strong> Quick preliminary audits and printable customer appraisal sheets.</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-1.5">
+          <h4 class="font-semibold text-emerald-400 text-xs">Key Highlights</h4>
+          <ul class="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+            <li><strong>Under 90ms Latency:</strong> Runs on standard CPUs with zero GPU requirements or cloud token fees.</li>
+            <li><strong>Explainable Numbers:</strong> Line items follow standard US collision formulas (Mitchell / CCC ONE guidelines).</li>
+            <li><strong>Pluggable Architecture:</strong> Built so future machine learning models can be dropped in easily.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button id="btn-about-ok" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold transition cursor-pointer">
+          Got it
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
   <script>

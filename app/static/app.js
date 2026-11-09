@@ -80,6 +80,27 @@ function initEventListeners() {
 
   // Export PDF Button
   document.getElementById('btn-export-pdf').addEventListener('click', downloadAppraisalPDF);
+
+  // About Modal Listeners
+  const aboutModal = document.getElementById('about-modal');
+  const btnAbout = document.getElementById('btn-about');
+  const btnCloseAbout = document.getElementById('btn-close-about');
+  const btnAboutOk = document.getElementById('btn-about-ok');
+
+  const openAbout = () => {
+    aboutModal.classList.remove('hidden');
+    lucide.createIcons();
+  };
+  const closeAbout = () => aboutModal.classList.add('hidden');
+
+  if (btnAbout) btnAbout.addEventListener('click', openAbout);
+  if (btnCloseAbout) btnCloseAbout.addEventListener('click', closeAbout);
+  if (btnAboutOk) btnAboutOk.addEventListener('click', closeAbout);
+  if (aboutModal) {
+    aboutModal.addEventListener('click', (e) => {
+      if (e.target === aboutModal) closeAbout();
+    });
+  }
 }
 
 function handleFileSelected(file) {

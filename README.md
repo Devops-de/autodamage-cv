@@ -6,6 +6,22 @@ No GPU required, no external API keys, and no black-box predictions.
 
 ---
 
+## About the Project
+
+**AutoDamage CV** is an open-source tool designed to take the guesswork out of vehicle repair estimates after minor accidents. By analyzing photos of damaged car panels, it maps out scratches, dents, and surface abrasions, estimates the physical damaged area, and generates an itemized repair cost breakdown based on standard US collision repair rates.
+
+### Who Is This For?
+* **Vehicle Owners:** Get an immediate, realistic estimate before visiting a body shop or deciding whether to file an insurance claim.
+* **Insurance Adjusters & Appraisers:** Quickly triage claims during First Notice of Loss (FNOL) with a preliminary, mathematically explainable damage assessment.
+* **Collision Repair Shops:** Run quick preliminary audits and produce standardized, customer-facing appraisal sheets.
+
+### Core Philosophy
+* **Simplicity Over Complexity:** Instead of deploying a heavy neural network that requires a GPU server and hundreds of megabytes of model weights, it uses reliable, classical computer vision (OpenCV).
+* **Deterministic & Auditable:** Every dollar amount on the invoice connects back to measurable defect area, standardized body labor hours, paint refinish formulas, and OEM/aftermarket parts catalog pricing.
+* **Zero Overhead:** Runs entirely in memory on any everyday CPU in less than 90 milliseconds, with zero API subscription costs.
+
+---
+
 ## Why I Built This
 
 If you have ever been in a minor car accident or scraped a bumper in a parking lot, you know how frustrating the repair process can be. You take photos, wait days for an insurance adjuster or body shop to get back to you, and when you finally receive an estimate, it is rarely clear how they calculated the numbers.
