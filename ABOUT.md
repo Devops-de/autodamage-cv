@@ -45,7 +45,7 @@ AutoDamage CV bridges the gap between image processing and insurance appraisal:
 ---
 
 ## Project Status & Metrics
-* **Test Suite:** 21 passing `pytest` tests covering regional wages, Mitchell blend rules, perceptual caching, input guardrails, and deterministic pricing.
+* **Test Suite:** 28 passing `pytest` tests covering API schemas, regional wages, Mitchell blend rules, perceptual caching, input guardrails, and deterministic pricing.
 * **CI/CD:** Automated GitHub Actions pipeline verifying builds and test suites on every push.
 * **Containerization:** Multi-stage `Dockerfile` with automated test verification during container build.
 * **License:** Dual-licensed under the MIT License and Apache License 2.0.

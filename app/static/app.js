@@ -1,14 +1,20 @@
 /**
- * AutoDamage CV - Frontend Controller
- * Communicates with FastAPI backend for Classical CV detection & actuarial cost calculation.
+ * AutoDamage CV - Frontend Application Controller
+ * Handles image upload validation, OpenCV signal processing requests,
+ * and actuarial collision repair estimate rendering.
  */
 
-let currentFile = null;
-let currentAnalysis = null;
-let currentEstimate = null;
-let originalImageSrc = null;
-let activeTab = 'annotated'; // 'annotated' | 'mask' | 'original'
+// Application State encapsulation
+const AppState = {
+  currentFile: null,
+  currentAnalysis: null,
+  currentEstimate: null,
+  originalImageSrc: null,
+  activeTab: 'annotated', // 'annotated' | 'mask' | 'original'
+  isInspecting: false,
+};
 
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
   initUI();
   initEventListeners();
@@ -17,76 +23,103 @@ document.addEventListener('DOMContentLoaded', () => {
 function initUI() {
   const slider = document.getElementById('sensitivity-slider');
   const sliderVal = document.getElementById('sensitivity-value');
-  slider.addEventListener('input', (e) => {
-    sliderVal.textContent = parseFloat(e.target.value).toFixed(2);
-  });
+  if (slider && sliderVal) {
+    slider.addEventListener('input', (e) => {
+      sliderVal.textContent = parseFloat(e.target.value).toFixed(2);
+    });
+  }
 }
 
 function initEventListeners() {
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('file-input');
 
-  dropzone.addEventListener('click', () => fileInput.click());
+  if (dropzone && fileInput) {
+    dropzone.addEventListener('click', () => fileInput.click());
 
-  dropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    dropzone.classList.add('dragover');
-  });
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
 
-  dropzone.addEventListener('dragleave', () => {
-    dropzone.classList.remove('dragover');
-  });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
 
-  dropzone.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    dropzone.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      await handleFileSelected(e.dataTransfer.files[0]);
-    }
-  });
+    dropzone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        await handleFileSelected(e.dataTransfer.files[0]);
+      }
+    });
 
-  fileInput.addEventListener('change', async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      await handleFileSelected(e.target.files[0]);
-    }
-  });
+    fileInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        await handleFileSelected(e.target.files[0]);
+      }
+    });
+  }
 
   // 1-Click Samples
-  document.getElementById('btn-sample-bumper').addEventListener('click', () => {
-    loadSamplePreset('/sample_images/sample_bumper_scratch.jpg', 'FRONT_BUMPER', 'Bumper Scratch');
-  });
+  const btnSampleBumper = document.getElementById('btn-sample-bumper');
+  if (btnSampleBumper) {
+    btnSampleBumper.addEventListener('click', () => {
+      loadSamplePreset('/sample_images/sample_bumper_scratch.jpg', 'FRONT_BUMPER', 'Bumper Scratch');
+    });
+  }
 
-  document.getElementById('btn-sample-door').addEventListener('click', () => {
-    loadSamplePreset('/sample_images/sample_door_dent.jpg', 'DRIVER_FRONT_DOOR', 'Door Dent');
-  });
+  const btnSampleDoor = document.getElementById('btn-sample-door');
+  if (btnSampleDoor) {
+    btnSampleDoor.addEventListener('click', () => {
+      loadSamplePreset('/sample_images/sample_door_dent.jpg', 'DRIVER_FRONT_DOOR', 'Door Dent');
+    });
+  }
 
-  document.getElementById('btn-sample-fender').addEventListener('click', () => {
-    loadSamplePreset('/sample_images/sample_fender_chip.jpg', 'FRONT_FENDER_LEFT', 'Fender Chip');
-  });
+  const btnSampleFender = document.getElementById('btn-sample-fender');
+  if (btnSampleFender) {
+    btnSampleFender.addEventListener('click', () => {
+      loadSamplePreset('/sample_images/sample_fender_chip.jpg', 'FRONT_FENDER_LEFT', 'Fender Chip');
+    });
+  }
 
   // Target Panel Selection Change
-  document.getElementById('panel-select').addEventListener('change', async () => {
-    if (currentFile) {
-      await handleFileSelected(currentFile);
-    }
-  });
+  const panelSelect = document.getElementById('panel-select');
+  if (panelSelect) {
+    panelSelect.addEventListener('change', async () => {
+      if (AppState.currentFile) {
+        await handleFileSelected(AppState.currentFile);
+      }
+    });
+  }
 
   // Execute Inspection Button
-  document.getElementById('btn-analyze').addEventListener('click', () => {
-    if (!currentFile) {
-      alert('Please upload a car photograph or select one of the 1-click test samples first.');
-      return;
-    }
-    executeInspection();
-  });
+  const btnAnalyze = document.getElementById('btn-analyze');
+  if (btnAnalyze) {
+    btnAnalyze.addEventListener('click', () => {
+      if (!AppState.currentFile) {
+        showToast('Please upload a car photograph or select a 1-click test sample first.', 'warning');
+        return;
+      }
+      executeInspection();
+    });
+  }
 
   // View Studio Tabs
-  document.getElementById('tab-annotated').addEventListener('click', () => switchTab('annotated'));
-  document.getElementById('tab-mask').addEventListener('click', () => switchTab('mask'));
-  document.getElementById('tab-original').addEventListener('click', () => switchTab('original'));
+  const tabAnnotated = document.getElementById('tab-annotated');
+  if (tabAnnotated) tabAnnotated.addEventListener('click', () => switchTab('annotated'));
+
+  const tabMask = document.getElementById('tab-mask');
+  if (tabMask) tabMask.addEventListener('click', () => switchTab('mask'));
+
+  const tabOriginal = document.getElementById('tab-original');
+  if (tabOriginal) tabOriginal.addEventListener('click', () => switchTab('original'));
 
   // Export PDF Button
-  document.getElementById('btn-export-pdf').addEventListener('click', downloadAppraisalPDF);
+  const btnExportPdf = document.getElementById('btn-export-pdf');
+  if (btnExportPdf) {
+    btnExportPdf.addEventListener('click', downloadAppraisalPDF);
+  }
 
   // About Modal Listeners
   const aboutModal = document.getElementById('about-modal');
@@ -95,10 +128,14 @@ function initEventListeners() {
   const btnAboutOk = document.getElementById('btn-about-ok');
 
   const openAbout = () => {
-    aboutModal.classList.remove('hidden');
-    lucide.createIcons();
+    if (aboutModal) {
+      aboutModal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
   };
-  const closeAbout = () => aboutModal.classList.add('hidden');
+  const closeAbout = () => {
+    if (aboutModal) aboutModal.classList.add('hidden');
+  };
 
   if (btnAbout) btnAbout.addEventListener('click', openAbout);
   if (btnCloseAbout) btnCloseAbout.addEventListener('click', closeAbout);
@@ -110,6 +147,9 @@ function initEventListeners() {
   }
 }
 
+/**
+ * Validates uploaded photo using the pre-flight classical CV filter endpoint.
+ */
 async function handleFileSelected(file) {
   const spinner = document.getElementById('validation-spinner');
   const errorBanner = document.getElementById('validation-error-banner');
@@ -122,15 +162,15 @@ async function handleFileSelected(file) {
   const fileInput = document.getElementById('file-input');
 
   // Reset feedback state
-  errorBanner.classList.add('hidden');
-  successBanner.classList.add('hidden');
-  previewInfo.classList.add('hidden');
-  spinner.classList.remove('hidden');
+  if (errorBanner) errorBanner.classList.add('hidden');
+  if (successBanner) successBanner.classList.add('hidden');
+  if (previewInfo) previewInfo.classList.add('hidden');
+  if (spinner) spinner.classList.remove('hidden');
 
   try {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('panel_id', document.getElementById('panel-select').value);
+    formData.append('panel_id', document.getElementById('panel-select')?.value || 'FRONT_BUMPER');
 
     const res = await fetch('/api/validate-image', {
       method: 'POST',
@@ -138,43 +178,55 @@ async function handleFileSelected(file) {
     });
 
     if (!res.ok) {
-      throw new Error('Image validation pre-check failed on server.');
+      throw new Error('Image validation request failed on server.');
     }
 
     const validation = await res.json();
 
     if (!validation.is_valid) {
-      // REJECT: Do not load or display image into canvas
-      currentFile = null;
-      originalImageSrc = null;
-      fileInput.value = '';
-      displayImg.classList.add('hidden');
-      displayImg.src = '';
-      emptyState.classList.remove('hidden');
+      // REJECT: Incompatible or non-automotive input
+      AppState.currentFile = null;
+      AppState.originalImageSrc = null;
+      if (fileInput) fileInput.value = '';
+      if (displayImg) {
+        displayImg.classList.add('hidden');
+        displayImg.src = '';
+      }
+      if (emptyState) emptyState.classList.remove('hidden');
 
-      errorMsg.textContent = validation.rejection_reason || 'Image is not a recognized vehicle panel.';
-      errorBanner.classList.remove('hidden');
+      if (errorMsg) {
+        errorMsg.textContent = validation.rejection_reason || 'Image is not a recognized vehicle panel.';
+      }
+      if (errorBanner) errorBanner.classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
       return false;
     }
 
     // ACCEPT: Verified vehicle panel
-    currentFile = file;
-    document.getElementById('file-name-label').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    previewInfo.classList.remove('hidden');
+    AppState.currentFile = file;
+    const nameLabel = document.getElementById('file-name-label');
+    if (nameLabel) {
+      nameLabel.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    }
+    if (previewInfo) previewInfo.classList.remove('hidden');
 
-    const panelName = validation.diagnostics && validation.diagnostics.target_panel ? validation.diagnostics.target_panel : 'Vehicle Body Panel';
-    const surfaceType = validation.diagnostics && validation.diagnostics.surface_type ? validation.diagnostics.surface_type : 'Automotive Painted Surface';
-    const defectInfo = validation.diagnostics && validation.diagnostics.damage_signal ? validation.diagnostics.damage_signal : `${validation.defect_count} damage defects detected`;
-    successDetails.textContent = `${panelName} approved: ${surfaceType}. ${defectInfo}.`;
-    successBanner.classList.remove('hidden');
+    const panelName = validation.diagnostics?.target_panel || 'Vehicle Body Panel';
+    const surfaceType = validation.diagnostics?.surface_type || 'Automotive Painted Surface';
+    const defectInfo = validation.diagnostics?.damage_signal || `${validation.defect_count} defect contours detected`;
+    
+    if (successDetails) {
+      successDetails.textContent = `${panelName} approved: ${surfaceType}. ${defectInfo}.`;
+    }
+    if (successBanner) successBanner.classList.remove('hidden');
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      originalImageSrc = e.target.result;
-      displayImg.src = originalImageSrc;
-      displayImg.classList.remove('hidden');
-      emptyState.classList.add('hidden');
+      AppState.originalImageSrc = e.target.result;
+      if (displayImg) {
+        displayImg.src = AppState.originalImageSrc;
+        displayImg.classList.remove('hidden');
+      }
+      if (emptyState) emptyState.classList.add('hidden');
     };
     reader.readAsDataURL(file);
 
@@ -182,48 +234,65 @@ async function handleFileSelected(file) {
     return true;
   } catch (err) {
     console.error('Validation error:', err);
-    errorMsg.textContent = `Verification error: ${err.message}`;
-    errorBanner.classList.remove('hidden');
-    currentFile = null;
-    fileInput.value = '';
+    if (errorMsg) errorMsg.textContent = `Verification error: ${err.message}`;
+    if (errorBanner) errorBanner.classList.remove('hidden');
+    AppState.currentFile = null;
+    if (fileInput) fileInput.value = '';
     return false;
   } finally {
-    spinner.classList.add('hidden');
+    if (spinner) spinner.classList.add('hidden');
   }
 }
 
+/**
+ * Loads one of the built-in 1-click test scenario presets.
+ */
 async function loadSamplePreset(url, panelId, label) {
   try {
     const res = await fetch(url);
+    if (!res.ok) throw new Error(`Could not load preset at ${url}`);
     const blob = await res.blob();
     const file = new File([blob], `${label.toLowerCase().replace(/\s+/g, '_')}.jpg`, { type: 'image/jpeg' });
     
-    document.getElementById('panel-select').value = panelId;
+    const panelSelect = document.getElementById('panel-select');
+    if (panelSelect) panelSelect.value = panelId;
+
     const isValid = await handleFileSelected(file);
     if (isValid) {
-      // Auto-execute inspection for smooth 1-click test experience
       setTimeout(() => executeInspection(), 150);
     }
   } catch (err) {
     console.error('Failed to load sample image:', err);
-    alert('Failed to load sample image.');
+    showToast(`Failed to load preset: ${err.message}`, 'error');
   }
 }
 
+/**
+ * Executes the full damage inspection and appraisal calculation pipeline.
+ */
 async function executeInspection() {
+  if (AppState.isInspecting || !AppState.currentFile) return;
+
   const loader = document.getElementById('loader');
-  loader.classList.remove('hidden');
+  const btnAnalyze = document.getElementById('btn-analyze');
+  AppState.isInspecting = true;
+
+  if (loader) loader.classList.remove('hidden');
+  if (btnAnalyze) {
+    btnAnalyze.disabled = true;
+    btnAnalyze.classList.add('opacity-75', 'cursor-not-allowed');
+  }
 
   const formData = new FormData();
-  formData.append('file', currentFile);
-  formData.append('panel_id', document.getElementById('panel-select').value);
-  formData.append('sensitivity', document.getElementById('sensitivity-slider').value);
-  formData.append('detect_scratches', document.getElementById('check-scratches').checked);
-  formData.append('detect_dents', document.getElementById('check-dents').checked);
-  formData.append('use_oem_parts', document.getElementById('parts-tier').value === 'true');
-  formData.append('deductible', document.getElementById('deductible-input').value);
-  formData.append('blend_adjacent_panels', document.getElementById('blend-select').value === 'true');
-  formData.append('zip_code', document.getElementById('zip-input').value.trim());
+  formData.append('file', AppState.currentFile);
+  formData.append('panel_id', document.getElementById('panel-select')?.value || 'FRONT_BUMPER');
+  formData.append('sensitivity', document.getElementById('sensitivity-slider')?.value || '0.55');
+  formData.append('detect_scratches', document.getElementById('check-scratches')?.checked ?? true);
+  formData.append('detect_dents', document.getElementById('check-dents')?.checked ?? true);
+  formData.append('use_oem_parts', document.getElementById('parts-tier')?.value === 'true');
+  formData.append('deductible', document.getElementById('deductible-input')?.value || '500');
+  formData.append('blend_adjacent_panels', document.getElementById('blend-select')?.value === 'true');
+  formData.append('zip_code', (document.getElementById('zip-input')?.value || '').trim());
 
   try {
     const res = await fetch('/api/analyze', {
@@ -232,23 +301,32 @@ async function executeInspection() {
     });
 
     if (!res.ok) {
-      const err = await res.json();
+      const err = await res.json().catch(() => ({ detail: 'Analysis request failed' }));
       throw new Error(err.detail || 'Analysis request failed');
     }
 
     const data = await res.json();
-    currentAnalysis = data.analysis;
-    currentEstimate = data.estimate;
+    AppState.currentAnalysis = data.analysis;
+    AppState.currentEstimate = data.estimate;
 
-    renderResults(currentAnalysis, currentEstimate, data.telemetry);
+    renderResults(AppState.currentAnalysis, AppState.currentEstimate, data.telemetry);
     switchTab('annotated');
+    showToast('Inspection appraisal completed successfully', 'success');
   } catch (err) {
-    alert(`Error running CV analysis: ${err.message}`);
+    showToast(`Error running CV analysis: ${err.message}`, 'error');
   } finally {
-    loader.classList.add('hidden');
+    AppState.isInspecting = false;
+    if (loader) loader.classList.add('hidden');
+    if (btnAnalyze) {
+      btnAnalyze.disabled = false;
+      btnAnalyze.classList.remove('opacity-75', 'cursor-not-allowed');
+    }
   }
 }
 
+/**
+ * Renders telemetry, defect list, and actuarial invoice line items.
+ */
 function renderResults(analysis, estimate, telemetry) {
   // 1. Show Telemetry Bar
   const telemetryBar = document.getElementById('telemetry-bar');
@@ -292,41 +370,43 @@ function renderResults(analysis, estimate, telemetry) {
   // 2. Render Detected Defects List
   const defectsContainer = document.getElementById('defects-container');
   const defectsList = document.getElementById('defects-list');
-  defectsList.innerHTML = '';
+  if (defectsList) {
+    defectsList.innerHTML = '';
 
-  if (analysis.items_detected.length === 0) {
-    defectsList.innerHTML = `
-      <div class="p-3 rounded-xl bg-slate-950 text-xs text-slate-400 flex items-center gap-2">
-        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
-        <span>No severe surface fractures or dents detected at this threshold.</span>
-      </div>`;
-  } else {
-    analysis.items_detected.forEach((item) => {
-      const badgeColor = item.severity === 'SEVERE' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-        : item.severity === 'MODERATE' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-        : 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20';
+    if (analysis.items_detected.length === 0) {
+      defectsList.innerHTML = `
+        <div class="p-3 rounded-xl bg-slate-950 text-xs text-slate-400 flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+          <span>No severe surface fractures or dents detected at this threshold.</span>
+        </div>`;
+    } else {
+      analysis.items_detected.forEach((item) => {
+        const badgeColor = item.severity === 'SEVERE' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          : item.severity === 'MODERATE' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+          : 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20';
 
-      const div = document.createElement('div');
-      div.className = 'p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between text-xs';
-      div.innerHTML = `
-        <div class="flex items-center space-x-3">
-          <span class="font-mono text-slate-400 font-semibold">#${item.id}</span>
-          <div>
-            <div class="font-semibold text-slate-200">${item.details}</div>
-            <div class="text-[11px] text-slate-500">Box: [x:${item.bounding_box.x}, y:${item.bounding_box.y}, w:${item.bounding_box.width}, h:${item.bounding_box.height}]</div>
+        const div = document.createElement('div');
+        div.className = 'p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between text-xs';
+        div.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <span class="font-mono text-slate-400 font-semibold">#${item.id}</span>
+            <div>
+              <div class="font-semibold text-slate-200">${item.details}</div>
+              <div class="text-[11px] text-slate-500">Box: [x:${item.bounding_box.x}, y:${item.bounding_box.y}, w:${item.bounding_box.width}, h:${item.bounding_box.height}]</div>
+            </div>
           </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${badgeColor}">
-            ${item.severity}
-          </span>
-          <span class="text-slate-400 text-[11px] font-mono">Conf: ${(item.confidence_score * 100).toFixed(0)}%</span>
-        </div>
-      `;
-      defectsList.appendChild(div);
-    });
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${badgeColor}">
+              ${item.severity}
+            </span>
+            <span class="text-slate-400 text-[11px] font-mono">Conf: ${(item.confidence_score * 100).toFixed(0)}%</span>
+          </div>
+        `;
+        defectsList.appendChild(div);
+      });
+    }
   }
-  defectsContainer.classList.remove('hidden');
+  if (defectsContainer) defectsContainer.classList.remove('hidden');
 
   // 3. Render Insurance Estimate Section
   const estCard = document.getElementById('estimate-card');
@@ -402,54 +482,61 @@ function renderResults(analysis, estimate, telemetry) {
   if (window.lucide) lucide.createIcons();
 }
 
+/**
+ * Switches between Annotated Inspection, Mask, and Original Image tabs.
+ */
 function switchTab(tab) {
-  activeTab = tab;
+  AppState.activeTab = tab;
   const btnAnnotated = document.getElementById('tab-annotated');
   const btnMask = document.getElementById('tab-mask');
   const btnOriginal = document.getElementById('tab-original');
   const displayImg = document.getElementById('img-display');
 
-  // Reset tab button styling
   [btnAnnotated, btnMask, btnOriginal].forEach((b) => {
-    b.className = 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition';
+    if (b) b.className = 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition';
   });
 
   if (tab === 'annotated') {
-    btnAnnotated.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 text-white transition';
-    if (currentAnalysis) {
-      displayImg.src = currentAnalysis.annotated_image_base64;
+    if (btnAnnotated) btnAnnotated.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-500 text-white transition';
+    if (displayImg && AppState.currentAnalysis) {
+      displayImg.src = AppState.currentAnalysis.annotated_image_base64;
     }
   } else if (tab === 'mask') {
-    btnMask.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
-    if (currentAnalysis) {
-      displayImg.src = currentAnalysis.mask_image_base64;
+    if (btnMask) btnMask.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition';
+    if (displayImg && AppState.currentAnalysis) {
+      displayImg.src = AppState.currentAnalysis.mask_image_base64;
     }
   } else {
-    btnOriginal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-white transition';
-    if (originalImageSrc) {
-      displayImg.src = originalImageSrc;
+    if (btnOriginal) btnOriginal.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-white transition';
+    if (displayImg && AppState.originalImageSrc) {
+      displayImg.src = AppState.originalImageSrc;
     }
   }
 }
 
+/**
+ * Requests and downloads the insurance PDF appraisal report.
+ */
 async function downloadAppraisalPDF() {
-  if (!currentAnalysis || !currentEstimate) {
-    alert('Please execute an inspection first.');
+  if (!AppState.currentAnalysis || !AppState.currentEstimate) {
+    showToast('Please execute an inspection first.', 'warning');
     return;
   }
 
   const btn = document.getElementById('btn-export-pdf');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = `<span class="animate-spin mr-1">⌛</span> Generating PDF...`;
-  btn.disabled = true;
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.innerHTML = `<span class="animate-spin mr-1">⌛</span> Generating PDF...`;
+    btn.disabled = true;
+  }
 
   try {
     const res = await fetch('/api/export-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        analysis: currentAnalysis,
-        estimate: currentEstimate,
+        analysis: AppState.currentAnalysis,
+        estimate: AppState.currentEstimate,
       }),
     });
 
@@ -459,16 +546,60 @@ async function downloadAppraisalPDF() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Damage_Appraisal_${currentEstimate.claim_id}.pdf`;
+    a.download = `Damage_Appraisal_${AppState.currentEstimate.claim_id}.pdf`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
+    showToast('Official PDF appraisal downloaded successfully', 'success');
   } catch (err) {
-    alert(`Failed to download PDF: ${err.message}`);
+    showToast(`Failed to download PDF: ${err.message}`, 'error');
   } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
-    lucide.createIcons();
+    if (btn) {
+      btn.innerHTML = originalHtml;
+      btn.disabled = false;
+      if (window.lucide) lucide.createIcons();
+    }
   }
+}
+
+/**
+ * Displays a clean, modern floating toast notification.
+ */
+function showToast(message, type = 'info') {
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm';
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement('div');
+  const bg = type === 'success' ? 'bg-emerald-950/90 border-emerald-700/80 text-emerald-200'
+    : type === 'error' ? 'bg-rose-950/90 border-rose-700/80 text-rose-200'
+    : type === 'warning' ? 'bg-amber-950/90 border-amber-700/80 text-amber-200'
+    : 'bg-slate-900/90 border-slate-700 text-slate-200';
+
+  const iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-triangle' : 'info';
+
+  toast.className = `p-3 rounded-xl border shadow-2xl backdrop-blur-md flex items-center space-x-2.5 text-xs font-medium pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${bg}`;
+  toast.innerHTML = `
+    <i data-lucide="${iconName}" class="w-4 h-4 shrink-0"></i>
+    <span class="flex-1">${message}</span>
+  `;
+
+  container.appendChild(toast);
+  if (window.lucide) lucide.createIcons();
+
+  // Animate in
+  requestAnimationFrame(() => {
+    toast.classList.remove('translate-y-2', 'opacity-0');
+  });
+
+  // Auto remove after 3.5s
+  setTimeout(() => {
+    toast.classList.add('opacity-0', 'translate-y-2');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 }

@@ -5,24 +5,33 @@ and insurance PDF appraisal generation.
 """
 import io
 import time
+import logging
 import asyncio
-from typing import Optional, Dict, Any
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
-from fastapi.responses import Response, StreamingResponse
+from typing import Optional, Dict, Any, List
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Request
+from fastapi.responses import Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
 from app.core.config import settings
 from app.core.cache import PerceptualImageCache
-from app.cv_engine.base import DetectionOptions
+from app.cv_engine.base import DetectionOptions, DamageAnalysisResult
 from app.cv_engine.classical_detector import ClassicalDamageDetector
 from app.cv_engine.image_validator import VehicleImageValidator
 from app.estimator.cost_engine import EstimateCalculator, InsuranceEstimate
 from app.estimator.parts_catalog import PANEL_CATALOG
-from app.estimator.regional_rates import REGIONAL_MARKETS, lookup_regional_market
+from app.estimator.regional_rates import REGIONAL_MARKETS, RegionalMarket
 from app.reports.pdf_generator import generate_estimate_pdf
+from app.schemas.api import (
+    HealthResponse,
+    PanelResponseItem,
+    SettingsResponse,
+    ValidationResponse,
+    AnalysisResponse,
+    ExportPDFRequest,
+)
 
+logger = logging.getLogger("autodamage_cv")
 
 app = FastAPI(
     title=settings.app_name,
@@ -43,49 +52,51 @@ app.add_middleware(
 detector = ClassicalDamageDetector()
 
 
-@app.get("/api/health")
+@app.get("/api/health", response_model=HealthResponse, tags=["Diagnostics"])
 def health_check():
-    return {
-        "status": "healthy",
-        "app": settings.app_name,
-        "engine": detector.engine_name,
-        "version": settings.version,
-    }
+    """Returns application health, version, and active detection engine."""
+    return HealthResponse(
+        status="healthy",
+        app=settings.app_name,
+        engine=detector.engine_name,
+        version=settings.version,
+    )
 
 
-@app.get("/api/panels")
+@app.get("/api/panels", response_model=List[PanelResponseItem], tags=["Estimator Catalog"])
 def get_panels():
     """Returns available vehicle panels, materials, and standard repair metrics."""
     return [
-        {
-            "id": p.panel_id,
-            "name": p.name,
-            "material": p.material,
-            "surface_area_cm2": p.surface_area_cm2,
-            "oem_price": p.oem_part_price,
-            "aftermarket_price": p.aftermarket_part_price,
-            "r_and_i_hours": p.r_and_i_labor_hours,
-            "paint_hours": p.standard_paint_refinish_hours,
-        }
+        PanelResponseItem(
+            id=p.panel_id,
+            name=p.name,
+            material=p.material,
+            surface_area_cm2=p.surface_area_cm2,
+            oem_price=p.oem_part_price,
+            aftermarket_price=p.aftermarket_part_price,
+            r_and_i_hours=p.r_and_i_labor_hours,
+            paint_hours=p.standard_paint_refinish_hours,
+        )
         for p in PANEL_CATALOG.values()
     ]
 
 
-@app.get("/api/settings")
+@app.get("/api/settings", response_model=SettingsResponse, tags=["Diagnostics"])
 def get_settings():
-    return {
-        "rates": settings.rates.model_dump(),
-        "replace_threshold_area_cm2": settings.replace_threshold_area_cm2,
-    }
+    """Returns system configuration and base actuarial labor rates."""
+    return SettingsResponse(
+        rates=settings.rates.model_dump(),
+        replace_threshold_area_cm2=settings.replace_threshold_area_cm2,
+    )
 
 
-@app.get("/api/regional-markets")
+@app.get("/api/regional-markets", response_model=List[RegionalMarket], tags=["Estimator Catalog"])
 def get_regional_markets():
     """Returns standard US regional collision repair markets and wage multipliers."""
-    return [m.model_dump() for m in REGIONAL_MARKETS.values()]
+    return list(REGIONAL_MARKETS.values())
 
 
-@app.post("/api/validate-image")
+@app.post("/api/validate-image", response_model=ValidationResponse, tags=["Computer Vision"])
 async def validate_vehicle_image(
     file: UploadFile = File(...),
     panel_id: str = Form("FRONT_BUMPER"),
@@ -96,37 +107,37 @@ async def validate_vehicle_image(
     Rejects selfies, paper documents, blur, screenshots, or non-vehicle textures.
     High-performance caching and thread-offloaded execution.
     """
-    if not file.content_type.startswith("image/"):
-        return {
-            "is_valid": False,
-            "rejection_reason": "Uploaded file must be a valid image (JPEG, PNG, WEBP).",
-            "blur_score": 0.0,
-            "skin_tone_ratio": 0.0,
-            "surface_smoothness_ratio": 0.0,
-            "brightness_mean": 0.0,
-            "defect_count": 0,
-            "diagnostics": {},
-        }
+    if not file.content_type or not file.content_type.startswith("image/"):
+        return ValidationResponse(
+            is_valid=False,
+            rejection_reason="Uploaded file must be a valid image (JPEG, PNG, WEBP).",
+            blur_score=0.0,
+            skin_tone_ratio=0.0,
+            surface_smoothness_ratio=0.0,
+            brightness_mean=0.0,
+            defect_count=0,
+            diagnostics={},
+        )
 
     contents = await file.read()
     if len(contents) == 0:
-        return {
-            "is_valid": False,
-            "rejection_reason": "Empty image file received.",
-            "blur_score": 0.0,
-            "skin_tone_ratio": 0.0,
-            "surface_smoothness_ratio": 0.0,
-            "brightness_mean": 0.0,
-            "defect_count": 0,
-            "diagnostics": {},
-        }
+        return ValidationResponse(
+            is_valid=False,
+            rejection_reason="Empty image file received.",
+            blur_score=0.0,
+            skin_tone_ratio=0.0,
+            surface_smoothness_ratio=0.0,
+            brightness_mean=0.0,
+            defect_count=0,
+            diagnostics={},
+        )
 
     # Check perceptual hash cache for instantaneous sub-millisecond return
     dhash = await asyncio.to_thread(PerceptualImageCache.compute_dhash, contents)
     cached_val = PerceptualImageCache.get_validation(dhash, panel_id)
     if cached_val is not None:
         cached_val["diagnostics"]["cache_hit"] = True
-        return cached_val
+        return ValidationResponse.model_validate(cached_val)
 
     # Run validation non-blockingly on Python's thread pool
     result = await asyncio.to_thread(VehicleImageValidator.validate, contents, panel_id=panel_id)
@@ -135,10 +146,10 @@ async def validate_vehicle_image(
 
     # Store in perceptual cache
     PerceptualImageCache.set_validation(dhash, panel_id, result_dict)
-    return result_dict
+    return ValidationResponse.model_validate(result_dict)
 
 
-@app.post("/api/analyze")
+@app.post("/api/analyze", response_model=AnalysisResponse, tags=["Computer Vision"])
 async def analyze_vehicle_damage(
     file: UploadFile = File(...),
     panel_id: str = Form("FRONT_BUMPER"),
@@ -154,15 +165,10 @@ async def analyze_vehicle_damage(
     """
     Accepts a vehicle damage photograph, applies Classical Computer Vision algorithms,
     and returns detected damage bounding boxes, visual mask, and actuarial cost estimate.
-    Features:
-    - Thread-offloaded CPU concurrency (asyncio.to_thread)
-    - Perceptual hash caching for sub-millisecond repeat queries
-    - Mitchell / CCC ONE adjacent panel paint blend rule
-    - Regional prevailing wage and tax rate adjustment via ZIP code lookup
     """
     start_time = time.perf_counter()
 
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image (JPEG, PNG, WEBP).")
 
     contents = await file.read()
@@ -189,7 +195,7 @@ async def analyze_vehicle_damage(
             "total_latency_ms": elapsed_ms,
             "dhash": dhash,
         }
-        return cached_analysis
+        return AnalysisResponse.model_validate(cached_analysis)
 
     # 3. Pre-flight Validation (Non-blocking thread offload)
     validation = await asyncio.to_thread(VehicleImageValidator.validate, contents, panel_id=panel_id)
@@ -251,35 +257,35 @@ async def analyze_vehicle_damage(
             data=response_payload,
         )
 
-        return response_payload
+        return AnalysisResponse.model_validate(response_payload)
     except Exception as e:
+        logger.exception("Error processing vehicle damage analysis: %s", str(e))
         raise HTTPException(status_code=500, detail=f"Image processing failed: {str(e)}")
 
 
-class ExportPDFRequest(BaseModel):
-    analysis: dict
-    estimate: dict
-
-
-@app.post("/api/export-pdf")
+@app.post("/api/export-pdf", tags=["Reports"])
 async def export_pdf(payload: ExportPDFRequest):
-    """Generates an official insurance-standard PDF appraisal from analysis and estimate data."""
+    """
+    Generates an official insurance-standard PDF appraisal from analysis and estimate data.
+    Directly validates structured Pydantic payload.
+    """
     try:
-        from app.cv_engine.base import DamageAnalysisResult
-        analysis_obj = DamageAnalysisResult.model_validate(payload.analysis)
-        estimate_obj = InsuranceEstimate.model_validate(payload.estimate)
-
         # Offload PDF compilation to worker thread
-        pdf_bytes = await asyncio.to_thread(generate_estimate_pdf, estimate_obj, analysis_obj)
+        pdf_bytes = await asyncio.to_thread(
+            generate_estimate_pdf,
+            payload.estimate,
+            payload.analysis,
+        )
 
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f"attachment; filename=Damage_Appraisal_{estimate_obj.claim_id}.pdf"
+                "Content-Disposition": f"attachment; filename=Damage_Appraisal_{payload.estimate.claim_id}.pdf"
             },
         )
     except Exception as e:
+        logger.exception("PDF generation error: %s", str(e))
         raise HTTPException(status_code=500, detail=f"PDF generation error: {str(e)}")
 
 

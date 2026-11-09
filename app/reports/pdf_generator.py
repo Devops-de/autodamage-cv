@@ -29,6 +29,26 @@ class PDFReport(FPDF):
         self.cell(0, 10, f'Page {self.page_no()} | AutoDamage-CV Deterministic Appraisal | Strictly Confidential', align='C')
 
 
+def clean_text(s: str) -> str:
+    """Sanitizes unicode characters into clean ASCII/latin-1 equivalents for standard PDF fonts."""
+    if not s:
+        return ""
+    replacements = {
+        "cm²": "cm2",
+        "²": "2",
+        "—": "-",
+        "–": "-",
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+        "•": "*",
+    }
+    for old, new in replacements.items():
+        s = s.replace(old, new)
+    return s.encode("latin-1", "replace").decode("latin-1")
+
+
 def generate_estimate_pdf(estimate: InsuranceEstimate, analysis: DamageAnalysisResult) -> bytes:
     pdf = PDFReport()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -37,15 +57,15 @@ def generate_estimate_pdf(estimate: InsuranceEstimate, analysis: DamageAnalysisR
     # Meta Section
     pdf.set_text_color(30, 41, 59)
     pdf.set_font('Helvetica', 'B', 12)
-    pdf.cell(0, 7, f'Claim Number: {estimate.claim_id}', new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 7, clean_text(f'Claim Number: {estimate.claim_id}'), new_x="LMARGIN", new_y="NEXT")
     
     pdf.set_font('Helvetica', '', 9)
     pdf.cell(100, 5, f'Appraisal Date: {datetime.now().strftime("%B %d, %Y %I:%M %p")}')
-    pdf.cell(90, 5, f'Inspected Panel: {estimate.panel_name}', new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(100, 5, f'Panel Material: {estimate.panel_material}')
-    pdf.cell(90, 5, f'Detection Engine: {analysis.engine_used}', new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(90, 5, clean_text(f'Inspected Panel: {estimate.panel_name}'), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(100, 5, clean_text(f'Panel Material: {estimate.panel_material}'))
+    pdf.cell(90, 5, clean_text(f'Detection Engine: {analysis.engine_used}'), new_x="LMARGIN", new_y="NEXT")
     pdf.cell(100, 5, f'Parts Type: {"OEM Original" if estimate.use_oem_parts else "CAPA Certified Aftermarket"}')
-    pdf.cell(90, 5, f'Panel Surface Damage: {estimate.panel_damage_percentage}% ({estimate.damage_area_cm2} cm2)', new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(90, 5, clean_text(f'Panel Surface Damage: {estimate.panel_damage_percentage}% ({estimate.damage_area_cm2} cm2)'), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     # Recommendation Box
@@ -55,11 +75,11 @@ def generate_estimate_pdf(estimate: InsuranceEstimate, analysis: DamageAnalysisR
     pdf.set_xy(14, pdf.get_y() + 2)
     pdf.set_font('Helvetica', 'B', 10)
     pdf.set_text_color(15, 23, 42)
-    pdf.cell(0, 6, f'APPRAISER ACTION: {estimate.recommended_action.value.replace("_", " ")}', new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, clean_text(f'APPRAISER ACTION: {estimate.recommended_action.value.replace("_", " ")}'), new_x="LMARGIN", new_y="NEXT")
     pdf.set_x(14)
     pdf.set_font('Helvetica', '', 8.5)
     pdf.set_text_color(71, 85, 105)
-    pdf.multi_cell(182, 4, f'Determination Reason: {estimate.action_reason}')
+    pdf.multi_cell(182, 4, clean_text(f'Determination Reason: {estimate.action_reason}'))
     pdf.ln(8)
 
     # Itemized Breakdown Table
@@ -78,8 +98,8 @@ def generate_estimate_pdf(estimate: InsuranceEstimate, analysis: DamageAnalysisR
     pdf.set_font('Helvetica', '', 8.5)
     pdf.set_text_color(51, 65, 85)
     for item in estimate.line_items:
-        pdf.cell(col_w[0], 6, item.category, border=1, align='C')
-        pdf.cell(col_w[1], 6, f'  {item.description}', border=1, align='L')
+        pdf.cell(col_w[0], 6, clean_text(item.category), border=1, align='C')
+        pdf.cell(col_w[1], 6, clean_text(f'  {item.description}'), border=1, align='L')
         pdf.cell(col_w[2], 6, f'{item.quantity_or_hours:.1f}', border=1, align='C')
         pdf.cell(col_w[3], 6, f'${item.rate:.2f}', border=1, align='R')
         pdf.cell(col_w[4], 6, f'${item.subtotal:.2f}', border=1, align='R')

@@ -2,6 +2,7 @@
 Actuarial Insurance Claim Estimator Engine.
 100% Deterministic business logic based on standard Mitchell / CCC ONE guidelines.
 """
+import uuid
 from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -255,7 +256,6 @@ class EstimateCalculator:
         net_claim = round(max(0.0, gross_total - deductible), 2)
         total_hours = round(body_labor_hours + paint_labor_hours, 1)
 
-        import uuid
         claim_num = f"CLM-{uuid.uuid4().hex[:8].upper()}"
 
         return InsuranceEstimate(

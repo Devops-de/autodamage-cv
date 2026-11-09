@@ -3,7 +3,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.10+-5C3EE8.svg?logo=opencv&logoColor=white)](https://opencv.org/)
-[![Tests](https://img.shields.io/badge/pytest-21%20passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/pytest-28%20passed-success.svg)](tests/)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-blue.svg)](LICENSE-MIT)
 [![Architecture](https://img.shields.io/badge/architecture-Zero--GPU%20%7C%20CPU--Only-orange.svg)](#core-philosophy)
 
@@ -27,7 +27,7 @@ No GPU required, no external API keys, and no black-box predictions.
 | **Concurrency Model** | Non-blocking CPU offloading via `asyncio.to_thread` |
 | **Caching & Deduplication** | 64-bit Perceptual Difference Hash (`dHash`) with thread-safe LRU cache |
 | **Regional Wage Indexing** | Dynamic 5-digit US ZIP lookup across 5 metropolitan wage tiers |
-| **Quality Verification** | 21 passing automated unit and integration tests (`pytest`) |
+| **Quality Verification** | 28 passing automated unit and integration tests (`pytest`) |
 
 ### Who Is This For?
 * **Vehicle Owners:** Get an immediate, realistic estimate before visiting a body shop or deciding whether to file an insurance claim.
@@ -113,7 +113,7 @@ The pricing engine uses standardized US collision repair rules:
 - 💻 **Terminal CLI Tool:** Built-in command-line interface (`cli.py`) supporting `--zip` and `--blend` flags for adjusters who prefer terminal workflows.
 - 📑 **Formal PDF Generation:** Exports a formatted Motor Vehicle Damage Appraisal Report matching US insurance adjuster standards.
 - 🔌 **Pluggable Architecture:** Implements the Strategy Pattern with an abstract `BaseDamageDetector` interface, making it easy to drop in a fine-tuned YOLO or segmentation model in the future without changing the pricing engine or UI.
-- 🧪 **21 Automated Tests:** Complete `pytest` test suite verifying regional rates, blend rules, caching, image validation, edge detection, and PDF generation.
+- 🧪 **28 Automated Tests:** Complete `pytest` test suite verifying API schemas, regional rates, blend rules, caching, image validation, edge detection, and PDF generation.
 
 ---
 
@@ -137,9 +137,13 @@ autodamage-cv/
 │   │   └── regional_rates.py    # 5-digit US ZIP code prevailing wage index
 │   ├── reports/
 │   │   └── pdf_generator.py     # PDF appraisal report generator (fpdf2)
+│   ├── schemas/
+│   │   ├── __init__.py          # Centralized schema exports
+│   │   └── api.py               # Pydantic request/response models for all endpoints
 │   └── static/                  # Web dashboard (HTML, Tailwind CSS, JS)
-├── tests/                       # Pytest test suite (21 automated tests)
+├── tests/                       # Pytest test suite (28 automated tests)
 │   ├── conftest.py              # Test path setup
+│   ├── test_api_schemas.py      # REST endpoint schemas and serialization tests
 │   ├── test_cv_detector.py      # OpenCV detection & determinism tests
 │   ├── test_estimator.py        # Repair vs replace & pricing logic tests
 │   ├── test_pdf.py              # PDF compilation tests
@@ -215,7 +219,7 @@ Run the test suite using pytest:
 pytest -v
 ```
 
-All 21 tests run locally in ~1.8 seconds, verifying regional wage rates, Mitchell blend rules, perceptual caching, image validation guardrails, edge extraction, and PDF generation.
+All 28 tests run locally in ~2.5 seconds, verifying API schemas, regional wage rates, Mitchell blend rules, perceptual caching, image validation guardrails, edge extraction, and PDF generation.
 
 ---
 
