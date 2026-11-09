@@ -34,7 +34,7 @@ class VehicleImageValidator:
     MIN_BLUR_THRESHOLD = 12.0
 
     # Max allowed dimension minimum in pixels
-    MIN_DIMENSION = 120
+    MIN_DIMENSION = 150
 
     @classmethod
     def validate(cls, image_bytes: bytes, panel_id: Optional[str] = None) -> ValidationResult:
