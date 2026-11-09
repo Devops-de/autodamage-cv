@@ -41,29 +41,37 @@ Most tech demos in this space try to solve this by immediately throwing a massiv
 ## How It Works
 
 ```
-  ┌─────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
-  │  Vehicle Photo  │ ────> │  OpenCV Vision Engine  │ ────> │ Actuarial Cost Engine  │
-  │  (JPEG / PNG)   │       │  • Canny Edge Calculus │       │  • Labor & Parts Rate  │
-  └─────────────────┘       │  • LAB Shadow Gradients│       │  • Repair vs. Replace  │
-                            │  • Contour Area (cm²)  │       │  • Deductible Math     │
-                            └────────────────────────┘       └────────────────────────┘
-                                                                          │
-                                                                          ▼
-                                                             ┌────────────────────────┐
-                                                             │  Output & Appraisal    │
-                                                             │  • Visual Mask Studio  │
-                                                             │  • Itemized Claim Sheet│
-                                                             │  • Official PDF Report │
-                                                             └────────────────────────┘
+  ┌─────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
+  │  Vehicle Photo  │ ────> │  Pre-Flight Validation │ ────> │  OpenCV Vision Engine  │ ────> │ Actuarial Cost Engine  │
+  │  (JPEG / PNG)   │       │  • Vehicle Panel Check │       │  • Canny Edge Calculus │       │  • Labor & Parts Rate  │
+  └─────────────────┘       │  • Damage Presence     │       │  • LAB Shadow Gradients│       │  • Repair vs. Replace  │
+                            │  • Reject Selfies/Docs │       │  • Contour Area (cm²)  │       │  • Deductible Math     │
+                            └────────────────────────┘       └────────────────────────┘       └────────────────────────┘
+                                                                                                           │
+                                                                                                           ▼
+                                                                                              ┌────────────────────────┐
+                                                                                              │  Output & Appraisal    │
+                                                                                              │  • Visual Mask Studio  │
+                                                                                              │  • Itemized Claim Sheet│
+                                                                                              │  • Official PDF Report │
+                                                                                              └────────────────────────┘
 ```
 
-### 1. Detection Pipeline (OpenCV)
+### 1. Smart Pre-Flight Validation Filter
+Before processing an image, AutoDamage CV validates that the upload is a clear photo of a vehicle body panel with visible damage:
+* **Vehicle Panel Only:** Verifies automotive paint continuity and chrominance consistency in LAB color space, blocking non-automotive images like domestic rooms, furniture, pets, or clothing.
+* **Damage Presence Check:** Verifies that the photo actually contains detectable surface anomalies (scratches, dents, cracks, or paint chips). Completely undamaged cars or flat textures are caught upfront.
+* **Bumper Section Awareness:** Specifically checks bumper properties (flexible molded polyurethane plastic vs. sheet metal) to ensure the photo matches the selected repair section.
+* **Smart Guardrails:** Automatically blocks selfies, paper invoices, screenshots, extreme lighting (pitch black or blown out), and blurry photos before they can enter the appraisal pipeline.
+* **Paint-Aware Focus:** Distinguishes between flat paper documents and glossy white car paint, ensuring clean white bumpers with damage are accepted seamlessly.
+
+### 2. Detection Pipeline (OpenCV)
 * **Contrast Normalization:** Applies Contrast-Limited Adaptive Histogram Equalization (CLAHE) on the L-channel in CIE LAB color space to reveal faint scrapes under harsh sunlight or shadows.
-* **Scratch Detection:** Bilateral filtering smooths flat car paint while preserving sharp surface fractures. Directional Canny edge detection and morphological kernels then connect broken scratch strokes into continuous lines.
-* **Dent & Deformity Detection:** Uses Difference of Gaussians (DoG) to identify localized concave shadows and specular reflection shifts caused by dented metal or plastic.
+* **Scratch Detection:** Bilateral filtering smooths flat car paint while preserving sharp surface fractures. Directional Canny edge detection and morphological kernels connect broken scratch strokes into continuous lines.
+* **Dent & Deformity Detection:** Uses localized gradient shading and color deviation to identify concave shadows and reflection shifts caused by dented metal or plastic.
 * **Metric Extraction:** `cv2.findContours` maps boundary polygons and computes calibrated surface area in square centimeters (cm²), assigning severity tiers (Minor, Moderate, Severe).
 
-### 2. Repair Estimating Engine
+### 3. Repair Estimating Engine
 The pricing engine uses standardized US collision repair rules:
 * **The 28% Rule (Repair vs. Replace):** If the damaged area covers 28% or more of the panel's total surface area (or if severe tearing is detected), the engine recommends a complete panel replacement. Otherwise, it recommends sheet metal repair and refinishing.
 * **Glass Exception:** Damaged windshields are always marked for replacement to comply with automotive safety standards.
@@ -74,13 +82,15 @@ The pricing engine uses standardized US collision repair rules:
 
 ## Key Features
 
+- 🛡️ **Vehicle & Damage Pre-Flight Guardrails:** Ensures only authentic vehicle body panels with real damage can be uploaded. Blocks selfies, documents, blur, domestic clutter, and undamaged cars right at upload time.
+- 🚗 **Bumper & Panel Material Intelligence:** Tailored checks for flexible polyurethane bumper covers as well as steel and aluminum body panels.
 - ⚡ **Lightweight & Fast:** Runs full-resolution image analysis on standard CPUs in < 90ms. No CUDA setup, no GPU hosting costs.
 - 🎯 **100% Explainable:** Every dollar on the estimate links to measurable contour coordinates, calibrated surface area, and standardized hourly rates.
-- 🖥️ **Interactive Web Studio:** Clean, responsive web dashboard with 1-click test scenarios (Bumper Scratch, Door Dent, Fender Chip), real-time sensitivity sliders, and side-by-side inspection views.
+- 🖥️ **Interactive Web Studio:** Clean, responsive web dashboard with 1-click test scenarios (Bumper Scratch, Door Dent, Fender Chip), real-time sensitivity sliders, instant verification badges, and side-by-side inspection views.
 - 💻 **Terminal CLI Tool:** Built-in command-line interface (`cli.py`) for adjusters who prefer terminal workflows or need to script batch inspections.
 - 📑 **Formal PDF Generation:** Exports a formatted Motor Vehicle Damage Appraisal Report matching US insurance adjuster standards.
 - 🔌 **Pluggable Architecture:** Implements the Strategy Pattern with an abstract `BaseDamageDetector` interface, making it easy to drop in a fine-tuned YOLO or segmentation model in the future without changing the pricing engine or UI.
-- 🧪 **Thoroughly Tested:** Automated `pytest` test suite with 8 tests covering edge detection reproducibility, cost thresholds, deductible arithmetic, and PDF compilation.
+- 🧪 **17 Automated Tests:** Complete `pytest` test suite verifying image validation, edge detection reproducibility, cost thresholds, deductible arithmetic, and PDF compilation.
 
 ---
 
@@ -177,7 +187,7 @@ Run the test suite using pytest:
 pytest -v
 ```
 
-All 8 tests run locally in ~1.2 seconds, verifying edge extraction, pricing rules, safety glass mandates, and PDF generation.
+All 17 tests run locally in ~1.3 seconds, verifying image validation guardrails, edge extraction, pricing rules, safety glass mandates, and PDF generation.
 
 ---
 
