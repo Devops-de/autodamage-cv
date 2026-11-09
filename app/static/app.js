@@ -37,17 +37,17 @@ function initEventListeners() {
     dropzone.classList.remove('dragover');
   });
 
-  dropzone.addEventListener('drop', (e) => {
+  dropzone.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropzone.classList.remove('dragover');
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileSelected(e.dataTransfer.files[0]);
+      await handleFileSelected(e.dataTransfer.files[0]);
     }
   });
 
-  fileInput.addEventListener('change', (e) => {
+  fileInput.addEventListener('change', async (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleFileSelected(e.target.files[0]);
+      await handleFileSelected(e.target.files[0]);
     }
   });
 
@@ -103,22 +103,86 @@ function initEventListeners() {
   }
 }
 
-function handleFileSelected(file) {
-  currentFile = file;
-  document.getElementById('file-preview-info').classList.remove('hidden');
-  document.getElementById('file-name-label').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+async function handleFileSelected(file) {
+  const spinner = document.getElementById('validation-spinner');
+  const errorBanner = document.getElementById('validation-error-banner');
+  const errorMsg = document.getElementById('validation-error-message');
+  const successBanner = document.getElementById('validation-success-banner');
+  const successDetails = document.getElementById('validation-success-details');
+  const previewInfo = document.getElementById('file-preview-info');
+  const displayImg = document.getElementById('img-display');
+  const emptyState = document.getElementById('empty-state');
+  const fileInput = document.getElementById('file-input');
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    originalImageSrc = e.target.result;
-    // Set preview in empty state if not yet analyzed
-    const displayImg = document.getElementById('img-display');
-    const emptyState = document.getElementById('empty-state');
-    displayImg.src = originalImageSrc;
-    displayImg.classList.remove('hidden');
-    emptyState.classList.add('hidden');
-  };
-  reader.readAsDataURL(file);
+  // Reset feedback state
+  errorBanner.classList.add('hidden');
+  successBanner.classList.add('hidden');
+  previewInfo.classList.add('hidden');
+  spinner.classList.remove('hidden');
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/validate-image', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error('Image validation pre-check failed on server.');
+    }
+
+    const validation = await res.json();
+
+    if (!validation.is_valid) {
+      // REJECT: Do not load or display image into canvas
+      currentFile = null;
+      originalImageSrc = null;
+      fileInput.value = '';
+      displayImg.classList.add('hidden');
+      displayImg.src = '';
+      emptyState.classList.remove('hidden');
+
+      errorMsg.textContent = validation.rejection_reason || 'Image is not a recognized vehicle panel.';
+      errorBanner.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+      return false;
+    }
+
+    // ACCEPT: Verified vehicle panel
+    currentFile = file;
+    document.getElementById('file-name-label').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    previewInfo.classList.remove('hidden');
+
+    if (validation.diagnostics && validation.diagnostics.focus_quality) {
+      successDetails.textContent = `Approved: ${validation.diagnostics.focus_quality} focus, automotive surface verified.`;
+    } else {
+      successDetails.textContent = 'Surface texture, focus, and panel geometry approved for inspection.';
+    }
+    successBanner.classList.remove('hidden');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      originalImageSrc = e.target.result;
+      displayImg.src = originalImageSrc;
+      displayImg.classList.remove('hidden');
+      emptyState.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+
+    if (window.lucide) lucide.createIcons();
+    return true;
+  } catch (err) {
+    console.error('Validation error:', err);
+    errorMsg.textContent = `Verification error: ${err.message}`;
+    errorBanner.classList.remove('hidden');
+    currentFile = null;
+    fileInput.value = '';
+    return false;
+  } finally {
+    spinner.classList.add('hidden');
+  }
 }
 
 async function loadSamplePreset(url, panelId, label) {
@@ -128,9 +192,11 @@ async function loadSamplePreset(url, panelId, label) {
     const file = new File([blob], `${label.toLowerCase().replace(/\s+/g, '_')}.jpg`, { type: 'image/jpeg' });
     
     document.getElementById('panel-select').value = panelId;
-    handleFileSelected(file);
-    // Auto-execute inspection for smooth 1-click test experience
-    setTimeout(() => executeInspection(), 100);
+    const isValid = await handleFileSelected(file);
+    if (isValid) {
+      // Auto-execute inspection for smooth 1-click test experience
+      setTimeout(() => executeInspection(), 150);
+    }
   } catch (err) {
     console.error('Failed to load sample image:', err);
     alert('Failed to load sample image.');

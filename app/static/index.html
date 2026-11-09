@@ -142,10 +142,15 @@
 
         <!-- 2. Image Upload Box -->
         <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4 shadow-lg">
-          <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-            <i data-lucide="upload-cloud" class="w-4 h-4 text-sky-400"></i>
-            Upload Vehicle Photograph
-          </h2>
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <i data-lucide="upload-cloud" class="w-4 h-4 text-sky-400"></i>
+              Upload Vehicle Photograph
+            </h2>
+            <span class="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+              Vehicle-Only Verification
+            </span>
+          </div>
           <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-sky-500/80 bg-slate-950/50 rounded-xl p-6 text-center cursor-pointer transition">
             <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" class="hidden">
             <div class="space-y-2">
@@ -155,11 +160,38 @@
               <div class="text-sm font-medium text-slate-300">
                 Drag and drop car photo or <span class="text-sky-400 underline">browse</span>
               </div>
-              <p class="text-xs text-slate-500">Supports JPEG, PNG, WEBP (Max 15MB)</p>
+              <p class="text-xs text-slate-500">Only photos of vehicle body panels and damaged areas are accepted</p>
             </div>
             <div id="file-preview-info" class="mt-3 text-xs text-sky-300 font-medium hidden flex items-center justify-center gap-2">
               <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
               <span id="file-name-label">car.jpg</span>
+            </div>
+          </div>
+
+          <!-- Pre-flight Validation Feedback State Banners -->
+          <div id="validation-spinner" class="hidden p-3 rounded-xl bg-sky-950/40 border border-sky-800 text-sky-300 text-xs flex items-center gap-2 animate-fade-in">
+            <div class="w-4 h-4 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+            <span>Verifying vehicle panel surface and image clarity...</span>
+          </div>
+
+          <div id="validation-success-banner" class="hidden p-3 rounded-xl bg-emerald-950/30 border border-emerald-800/80 text-emerald-300 text-xs flex items-center gap-2 animate-fade-in">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+            <div>
+              <span class="font-semibold block text-emerald-200">Vehicle Body Panel Verified</span>
+              <span id="validation-success-details" class="text-[11px] text-emerald-400">Surface texture, focus, and panel geometry approved for inspection.</span>
+            </div>
+          </div>
+
+          <div id="validation-error-banner" class="hidden p-3.5 rounded-xl bg-rose-950/40 border border-rose-800 text-rose-200 text-xs space-y-1.5 animate-fade-in">
+            <div class="flex items-center gap-2 font-semibold text-rose-300">
+              <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400 shrink-0"></i>
+              <span>Image Rejected — Vehicle Only Policy</span>
+            </div>
+            <p id="validation-error-message" class="text-slate-300 text-[11px] leading-relaxed">
+              This photo cannot be loaded because it is not recognized as a clear vehicle body panel.
+            </p>
+            <div class="text-[11px] text-slate-400 pt-1 border-t border-rose-900/40">
+              Please ensure your photo clearly captures a physical automotive panel (bumper, door, hood, fender) with good lighting and sharp focus. Non-car images (selfies, documents, blur, animals, indoor objects) cannot be loaded.
             </div>
           </div>
         </div>

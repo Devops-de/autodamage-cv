@@ -75,6 +75,40 @@ def get_settings():
     }
 
 
+@app.post("/api/validate-image")
+async def validate_vehicle_image(file: UploadFile = File(...)):
+    """
+    Pre-flight validation endpoint to verify that an uploaded photo
+    is a focused, legitimate automotive body panel before loading it.
+    Rejects selfies, paper documents, blur, screenshots, or non-vehicle textures.
+    """
+    if not file.content_type.startswith("image/"):
+        return {
+            "is_valid": False,
+            "rejection_reason": "Uploaded file must be a valid image (JPEG, PNG, WEBP).",
+            "blur_score": 0.0,
+            "skin_tone_ratio": 0.0,
+            "surface_smoothness_ratio": 0.0,
+            "brightness_mean": 0.0,
+            "diagnostics": {},
+        }
+
+    contents = await file.read()
+    if len(contents) == 0:
+        return {
+            "is_valid": False,
+            "rejection_reason": "Empty image file received.",
+            "blur_score": 0.0,
+            "skin_tone_ratio": 0.0,
+            "surface_smoothness_ratio": 0.0,
+            "brightness_mean": 0.0,
+            "diagnostics": {},
+        }
+
+    result = VehicleImageValidator.validate(contents)
+    return result.model_dump()
+
+
 @app.post("/api/analyze")
 async def analyze_vehicle_damage(
     file: UploadFile = File(...),

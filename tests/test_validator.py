@@ -49,3 +49,26 @@ def test_reject_blank_or_dark_image():
     result = VehicleImageValidator.validate(bytes(buf))
     assert result.is_valid is False
     assert "dark" in result.rejection_reason.lower()
+
+
+def test_reject_document_or_invoice():
+    """Paper documents, white sheets, and text invoices should be rejected."""
+    doc_img = np.full((400, 400, 3), 245, dtype=np.uint8)
+    # Add a few dark lines like text on white paper
+    cv2.line(doc_img, (50, 100), (350, 100), (20, 20, 20), 2)
+    cv2.line(doc_img, (50, 150), (350, 150), (20, 20, 20), 2)
+    _, buf = cv2.imencode(".jpg", doc_img)
+
+    result = VehicleImageValidator.validate(bytes(buf))
+    assert result.is_valid is False
+    assert "document" in result.rejection_reason.lower() or "invoice" in result.rejection_reason.lower()
+
+
+def test_reject_undersized_image():
+    """Low resolution images below minimum dimensions should be rejected."""
+    tiny_img = np.full((120, 120, 3), 128, dtype=np.uint8)
+    _, buf = cv2.imencode(".jpg", tiny_img)
+
+    result = VehicleImageValidator.validate(bytes(buf))
+    assert result.is_valid is False
+    assert "resolution" in result.rejection_reason.lower()

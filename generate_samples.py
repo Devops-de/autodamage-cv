@@ -33,19 +33,23 @@ def generate_samples(output_dir: str = "app/static/sample_images"):
     bumper = cv2.GaussianBlur(bumper, (3, 3), 0.5)
     cv2.imwrite(os.path.join(output_dir, "sample_bumper_scratch.jpg"), bumper)
 
-    # 2. Sample 2: Silver Metallic Door with Concave Dent & Shadow
+    # 2. Sample 2: Silver Metallic Door with Concave Dent & Seam Line
     door = np.zeros((h, w, 3), dtype=np.uint8)
     for x in range(w):
         val = int(185 + (x / w) * 40)
         door[:, x] = [val, val, val]
 
-    dent_center = (400, 300)
+    # Door character body line
+    cv2.line(door, (0, 190), (800, 205), (145, 145, 150), 2)
+
+    # Dent depression
+    dent_center = (400, 320)
     cv2.ellipse(door, dent_center, (120, 80), 20, 0, 360, (100, 100, 105), -1)
     cv2.ellipse(door, (dent_center[0] - 15, dent_center[1] - 10), (105, 65), 20, 180, 360, (240, 245, 250), 3)
-    door = cv2.GaussianBlur(door, (13, 13), 4.0)
 
-    scrape_pts = np.array([[330, 280], [380, 295], [440, 310]], np.int32)
-    cv2.polylines(door, [scrape_pts], isClosed=False, color=(60, 60, 65), thickness=4)
+    # Sharp scrape through the dent
+    scrape_pts = np.array([[320, 290], [380, 310], [450, 330], [510, 345]], np.int32)
+    cv2.polylines(door, [scrape_pts], isClosed=False, color=(55, 55, 60), thickness=3)
     cv2.imwrite(os.path.join(output_dir, "sample_door_dent.jpg"), door)
 
     # 3. Sample 3: Blue Pearl Fender with Scrape and Paint Chip
@@ -56,10 +60,13 @@ def generate_samples(output_dir: str = "app/static/sample_images"):
         r = int(20 + (y / h) * 15)
         fender[y, :] = [b, g, r]
 
+    # Wheel arch curve / seam
+    cv2.ellipse(fender, (400, 600), (320, 260), 0, 180, 360, (90, 30, 15), 3)
+
+    # Paint chip exposing dark steel
     cv2.circle(fender, (380, 260), 45, (45, 45, 50), -1)
     cv2.circle(fender, (430, 290), 30, (55, 55, 60), -1)
     cv2.ellipse(fender, (360, 240), (25, 15), 45, 0, 360, (180, 180, 190), 2)
-    fender = cv2.GaussianBlur(fender, (5, 5), 1.0)
     cv2.imwrite(os.path.join(output_dir, "sample_fender_chip.jpg"), fender)
 
     print("Regenerated clean test samples successfully!")
