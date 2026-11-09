@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.cv_engine.base import DetectionOptions
 from app.cv_engine.classical_detector import ClassicalDamageDetector
+from app.cv_engine.image_validator import VehicleImageValidator
 from app.estimator.cost_engine import EstimateCalculator, InsuranceEstimate
 from app.estimator.parts_catalog import PANEL_CATALOG
 from app.reports.pdf_generator import generate_estimate_pdf
@@ -95,6 +96,14 @@ async def analyze_vehicle_damage(
     contents = await file.read()
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Empty image file received.")
+
+    # Validate image is a clear vehicle panel (rejects selfies, text documents, extreme blur)
+    validation = VehicleImageValidator.validate(contents)
+    if not validation.is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Image validation check failed: {validation.rejection_reason}"
+        )
 
     options = DetectionOptions(
         target_panel=panel_id,

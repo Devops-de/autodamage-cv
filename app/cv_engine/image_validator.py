@@ -51,6 +51,7 @@ class VehicleImageValidator:
             )
 
         h, w = img.shape[:2]
+        total_pixels = h * w
 
         # 1. Resolution Check
         if h < cls.MIN_DIMENSION or w < cls.MIN_DIMENSION:
@@ -87,13 +88,15 @@ class VehicleImageValidator:
                 brightness_mean=brightness_mean,
             )
 
-        # 3. Blur & Focus Quality Check (Laplacian Variance)
-        blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-        if blur_score < cls.MIN_BLUR_THRESHOLD:
+        # 3. Document / White Paper / Screenshot Rejection Filter
+        # Documents have high proportion of near-white pixels (> 230) and discrete line edges
+        white_pixels = np.count_nonzero(gray > 230)
+        white_ratio = white_pixels / total_pixels
+        if white_ratio > 0.65:
             return ValidationResult(
                 is_valid=False,
-                rejection_reason="Photo is too blurry or out of focus. A clear, sharp photo is required to detect surface damage accurately.",
-                blur_score=blur_score,
+                rejection_reason="Image appears to be a paper document, screenshot, or invoice. Please upload a photograph of the physical vehicle panel.",
+                blur_score=0.0,
                 skin_tone_ratio=0.0,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=brightness_mean,
@@ -105,27 +108,24 @@ class VehicleImageValidator:
         # Standard human skin chrominance bounding box in YCrCb
         skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
         skin_pixels = np.count_nonzero(skin_mask)
-        total_pixels = h * w
         skin_ratio = float(skin_pixels / total_pixels)
 
         if skin_ratio > cls.MAX_SKIN_RATIO:
             return ValidationResult(
                 is_valid=False,
                 rejection_reason="Image appears to be a person or portrait. Please upload a photo focused specifically on the damaged vehicle panel.",
-                blur_score=blur_score,
+                blur_score=0.0,
                 skin_tone_ratio=skin_ratio,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=brightness_mean,
             )
 
-        # 5. Document / White Paper / Screenshot Rejection Filter
-        # Documents have high proportion of near-white pixels (> 230) and discrete line edges
-        white_pixels = np.count_nonzero(gray > 230)
-        white_ratio = white_pixels / total_pixels
-        if white_ratio > 0.65:
+        # 5. Blur & Focus Quality Check (Laplacian Variance)
+        blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        if blur_score < cls.MIN_BLUR_THRESHOLD:
             return ValidationResult(
                 is_valid=False,
-                rejection_reason="Image appears to be a paper document, screenshot, or invoice. Please upload a photograph of the physical vehicle panel.",
+                rejection_reason="Photo is too blurry or out of focus. A clear, sharp photo is required to detect surface damage accurately.",
                 blur_score=blur_score,
                 skin_tone_ratio=skin_ratio,
                 surface_smoothness_ratio=0.0,
