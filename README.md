@@ -20,6 +20,8 @@ No GPU required, no external API keys, and no black-box predictions.
 * **Deterministic & Auditable:** Every dollar amount on the invoice connects back to measurable defect area, standardized body labor hours, paint refinish formulas, and OEM/aftermarket parts catalog pricing.
 * **Zero Overhead:** Runs entirely in memory on any everyday CPU in less than 90 milliseconds, with zero API subscription costs.
 
+> For an executive overview of the project's background, problem statement, and solution design, see [ABOUT.md](ABOUT.md).
+
 ---
 
 ## Why I Built This
