@@ -2,19 +2,21 @@
 Vehicle Panels and Parts Pricing Catalog.
 Standard US Collision Repair baseline data (OEM and Certified Aftermarket parts).
 """
-from typing import Dict
-from pydantic import BaseModel
+from typing import Dict, List
+from pydantic import BaseModel, Field
 
 
 class PanelInfo(BaseModel):
     panel_id: str
     name: str
-    material: str                     # "Steel", "Aluminum", "Plastic / Polyurethane"
-    surface_area_cm2: float           # Approximate total surface area
-    oem_part_price: float             # Original Equipment Manufacturer part price ($)
-    aftermarket_part_price: float     # CAPA / Aftermarket alternative price ($)
-    r_and_i_labor_hours: float        # Remove & Install labor hours
+    material: str                        # "Steel", "Aluminum", "Plastic / Polyurethane"
+    surface_area_cm2: float              # Approximate total surface area
+    oem_part_price: float                # Original Equipment Manufacturer part price ($)
+    aftermarket_part_price: float        # CAPA / Aftermarket alternative price ($)
+    r_and_i_labor_hours: float           # Remove & Install labor hours
     standard_paint_refinish_hours: float # Base refinish spray hours
+    material_labor_multiplier: float = 1.0 # Aluminum/high-strength steel tooling surcharge
+    adjacent_panels: List[str] = Field(default_factory=list) # Neighboring panels for 50% blend rule
 
 
 PANEL_CATALOG: Dict[str, PanelInfo] = {
@@ -27,6 +29,8 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=220.00,
         r_and_i_labor_hours=2.2,
         standard_paint_refinish_hours=2.6,
+        material_labor_multiplier=1.0,
+        adjacent_panels=["FRONT_FENDER_LEFT", "FRONT_FENDER_RIGHT", "HOOD"],
     ),
     "REAR_BUMPER": PanelInfo(
         panel_id="REAR_BUMPER",
@@ -37,16 +41,20 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=210.00,
         r_and_i_labor_hours=2.0,
         standard_paint_refinish_hours=2.5,
+        material_labor_multiplier=1.0,
+        adjacent_panels=["TRUNK_TAILGATE"],
     ),
     "HOOD": PanelInfo(
         panel_id="HOOD",
         name="Engine Hood",
-        material="Aluminum / Steel",
+        material="Structural Aluminum / Steel",
         surface_area_cm2=1400.0,
         oem_part_price=590.00,
         aftermarket_part_price=380.00,
         r_and_i_labor_hours=2.5,
         standard_paint_refinish_hours=3.5,
+        material_labor_multiplier=1.25, # Specialized aluminum tooling surcharge
+        adjacent_panels=["FRONT_FENDER_LEFT", "FRONT_FENDER_RIGHT", "FRONT_BUMPER"],
     ),
     "FRONT_FENDER_LEFT": PanelInfo(
         panel_id="FRONT_FENDER_LEFT",
@@ -57,6 +65,8 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=175.00,
         r_and_i_labor_hours=1.8,
         standard_paint_refinish_hours=2.0,
+        material_labor_multiplier=1.0,
+        adjacent_panels=["FRONT_BUMPER", "HOOD", "DRIVER_FRONT_DOOR"],
     ),
     "FRONT_FENDER_RIGHT": PanelInfo(
         panel_id="FRONT_FENDER_RIGHT",
@@ -67,6 +77,8 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=175.00,
         r_and_i_labor_hours=1.8,
         standard_paint_refinish_hours=2.0,
+        material_labor_multiplier=1.0,
+        adjacent_panels=["FRONT_BUMPER", "HOOD", "PASSENGER_FRONT_DOOR"],
     ),
     "DRIVER_FRONT_DOOR": PanelInfo(
         panel_id="DRIVER_FRONT_DOOR",
@@ -77,6 +89,8 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=440.00,
         r_and_i_labor_hours=3.2,
         standard_paint_refinish_hours=3.4,
+        material_labor_multiplier=1.15, # High-strength steel cold repair surcharge
+        adjacent_panels=["FRONT_FENDER_LEFT"],
     ),
     "PASSENGER_FRONT_DOOR": PanelInfo(
         panel_id="PASSENGER_FRONT_DOOR",
@@ -87,6 +101,8 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=440.00,
         r_and_i_labor_hours=3.2,
         standard_paint_refinish_hours=3.4,
+        material_labor_multiplier=1.15, # High-strength steel cold repair surcharge
+        adjacent_panels=["FRONT_FENDER_RIGHT"],
     ),
     "TRUNK_TAILGATE": PanelInfo(
         panel_id="TRUNK_TAILGATE",
@@ -97,6 +113,8 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=310.00,
         r_and_i_labor_hours=2.4,
         standard_paint_refinish_hours=2.8,
+        material_labor_multiplier=1.0,
+        adjacent_panels=["REAR_BUMPER"],
     ),
     "WINDSHIELD": PanelInfo(
         panel_id="WINDSHIELD",
@@ -107,5 +125,7 @@ PANEL_CATALOG: Dict[str, PanelInfo] = {
         aftermarket_part_price=280.00,
         r_and_i_labor_hours=2.8,
         standard_paint_refinish_hours=0.0,
+        material_labor_multiplier=1.0,
+        adjacent_panels=[],
     ),
 }

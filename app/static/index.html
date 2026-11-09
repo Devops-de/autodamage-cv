@@ -235,6 +235,21 @@
               </div>
             </div>
 
+            <!-- Regional Market ZIP Code & Adjacent Panel Blend Rule -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 font-medium mb-1">Local ZIP Code</label>
+                <input type="text" id="zip-input" placeholder="e.g. 90210 / 10001" maxlength="5" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500">
+              </div>
+              <div>
+                <label class="block text-slate-400 font-medium mb-1">Adjacent Paint Blend</label>
+                <select id="blend-select" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
+                  <option value="false" selected>Single Panel Only</option>
+                  <option value="true">Mitchell 50% Blend Rule</option>
+                </select>
+              </div>
+            </div>
+
             <!-- Mathematical Sensitivity Slider -->
             <div class="space-y-1.5 pt-1">
               <div class="flex justify-between items-center">
@@ -321,12 +336,12 @@
               <span id="telemetry-area" class="font-bold text-sky-400 text-sm">0.0 cm²</span>
             </div>
             <div>
-              <span class="text-slate-400 block text-[11px]">Overall Severity</span>
-              <span id="telemetry-severity" class="font-bold text-emerald-400 text-sm">MINOR</span>
+              <span class="text-slate-400 block text-[11px]">Regional Labor Market</span>
+              <span id="telemetry-region" class="font-bold text-sky-300 text-sm">US Baseline</span>
             </div>
             <div>
-              <span class="text-slate-400 block text-[11px]">CV Engine</span>
-              <span class="font-bold text-slate-300 text-sm">Classical OpenCV</span>
+              <span class="text-slate-400 block text-[11px]">Execution Latency</span>
+              <span id="telemetry-latency" class="font-bold text-emerald-400 text-sm">-- ms</span>
             </div>
           </div>
         </div>

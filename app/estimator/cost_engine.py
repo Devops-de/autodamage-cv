@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.cv_engine.base import DamageAnalysisResult, DamageType, Severity
 from app.estimator.parts_catalog import PANEL_CATALOG, PanelInfo
+from app.estimator.regional_rates import lookup_regional_market, RegionalMarket
 
 
 class RecommendedAction(str, Enum):
@@ -33,6 +34,9 @@ class InsuranceEstimate(BaseModel):
     action_reason: str
     use_oem_parts: bool = True
     deductible: float = 500.00
+    regional_market: str = "US National Baseline"
+    zip_code: Optional[str] = None
+    adjacent_blend_applied: bool = False
     
     # Financial breakdown
     line_items: List[EstimateLineItem]
@@ -52,7 +56,8 @@ class InsuranceEstimate(BaseModel):
 
 class EstimateCalculator:
     """
-    Computes precise, transparent collision repair estimates using actuarial rules.
+    Computes precise, transparent collision repair estimates using actuarial rules
+    and standard Mitchell / CCC ONE collision repair guidelines.
     """
 
     @staticmethod
@@ -61,20 +66,28 @@ class EstimateCalculator:
         panel_id: str = "FRONT_BUMPER",
         use_oem_parts: bool = True,
         deductible: float = 500.00,
+        blend_adjacent_panels: bool = False,
+        zip_code: Optional[str] = None,
     ) -> InsuranceEstimate:
-        rates = settings.rates
         panel: PanelInfo = PANEL_CATALOG.get(panel_id, PANEL_CATALOG["FRONT_BUMPER"])
+        market: RegionalMarket = lookup_regional_market(zip_code)
+
+        # Regional & Material-adjusted labor rates
+        reg_mult = market.labor_rate_multiplier
+        base_body_rate = settings.rates.body_labor_rate_per_hour * reg_mult
+        effective_body_rate = round(base_body_rate * panel.material_labor_multiplier, 2)
+        effective_paint_rate = round(settings.rates.paint_labor_rate_per_hour * reg_mult, 2)
+        paint_mat_rate = settings.rates.paint_materials_rate_per_hour
 
         damage_area = analysis.total_damaged_area_cm2
         panel_area = panel.surface_area_cm2
         pct_damaged = round((damage_area / max(1.0, panel_area)) * 100.0, 1)
 
-        # 1. Decision Logic: Repair vs Replace
+        # 1. Decision Logic: Repair vs Replace (The 28% Rule)
         has_severe_tear = any(item.type == DamageType.TEAR or item.severity == Severity.SEVERE for item in analysis.items_detected)
         is_glass = "WINDSHIELD" in panel_id
 
         if is_glass:
-            # Glass with any crack or severe damage must always be replaced
             action = RecommendedAction.REPLACE_PANEL
             reason = "Automotive safety standards mandate complete windshield replacement for structural integrity."
         elif pct_damaged >= 28.0 or damage_area >= settings.replace_threshold_area_cm2 or has_severe_tear:
@@ -92,6 +105,11 @@ class EstimateCalculator:
         body_labor_hours = 0.0
         paint_labor_hours = 0.0
         paint_materials_hours = 0.0
+
+        # Description note for specialized material
+        mat_note = ""
+        if panel.material_labor_multiplier > 1.0:
+            mat_note = f" [{panel.material} specialized rate: ${effective_body_rate:.2f}/hr]"
 
         # 2. Compute Line Items based on Action
         if action == RecommendedAction.REPLACE_PANEL:
@@ -114,10 +132,10 @@ class EstimateCalculator:
             line_items.append(
                 EstimateLineItem(
                     category="BODY_LABOR",
-                    description=f"R&I (Remove & Install) {panel.name}",
+                    description=f"R&I (Remove & Install) {panel.name}{mat_note}",
                     quantity_or_hours=panel.r_and_i_labor_hours,
-                    rate=rates.body_labor_rate_per_hour,
-                    subtotal=round(panel.r_and_i_labor_hours * rates.body_labor_rate_per_hour, 2),
+                    rate=effective_body_rate,
+                    subtotal=round(panel.r_and_i_labor_hours * effective_body_rate, 2),
                 )
             )
 
@@ -129,8 +147,8 @@ class EstimateCalculator:
                         category="PAINT_LABOR",
                         description=f"Refinish spray paint {panel.name}",
                         quantity_or_hours=panel.standard_paint_refinish_hours,
-                        rate=rates.paint_labor_rate_per_hour,
-                        subtotal=round(panel.standard_paint_refinish_hours * rates.paint_labor_rate_per_hour, 2),
+                        rate=effective_paint_rate,
+                        subtotal=round(panel.standard_paint_refinish_hours * effective_paint_rate, 2),
                     )
                 )
                 paint_materials_hours += panel.standard_paint_refinish_hours
@@ -142,22 +160,22 @@ class EstimateCalculator:
             line_items.append(
                 EstimateLineItem(
                     category="BODY_LABOR",
-                    description=f"Dent extraction & sheet metal repair ({damage_area:.1f} cm²)",
+                    description=f"Dent extraction & metal repair ({damage_area:.1f} cm²){mat_note}",
                     quantity_or_hours=body_labor_hours,
-                    rate=rates.body_labor_rate_per_hour,
-                    subtotal=round(body_labor_hours * rates.body_labor_rate_per_hour, 2),
+                    rate=effective_body_rate,
+                    subtotal=round(body_labor_hours * effective_body_rate, 2),
                 )
             )
 
-            # Paint refinish & feathering (standard panel paint hours * 0.8 for spot repair blend)
+            # Paint refinish & feathering (standard panel paint hours * 0.85 for spot repair blend)
             paint_labor_hours = round(max(1.5, panel.standard_paint_refinish_hours * 0.85), 1)
             line_items.append(
                 EstimateLineItem(
                     category="PAINT_LABOR",
                     description=f"Paint feather, prime, & clear coat blend",
                     quantity_or_hours=paint_labor_hours,
-                    rate=rates.paint_labor_rate_per_hour,
-                    subtotal=round(paint_labor_hours * rates.paint_labor_rate_per_hour, 2),
+                    rate=effective_paint_rate,
+                    subtotal=round(paint_labor_hours * effective_paint_rate, 2),
                 )
             )
             paint_materials_hours = paint_labor_hours
@@ -167,28 +185,48 @@ class EstimateCalculator:
             line_items.append(
                 EstimateLineItem(
                     category="BODY_LABOR",
-                    description="Spot clear-coat compound buff & micro-polish",
+                    description=f"Spot clear-coat compound buff & micro-polish{mat_note}",
                     quantity_or_hours=0.8,
-                    rate=rates.body_labor_rate_per_hour,
-                    subtotal=round(0.8 * rates.body_labor_rate_per_hour, 2),
+                    rate=effective_body_rate,
+                    subtotal=round(0.8 * effective_body_rate, 2),
                 )
             )
 
-        # Paint Materials surcharge
+        # 3. Adjacent Panel Paint Blend (Mitchell 50% Rule)
+        adjacent_blend_applied = False
+        if blend_adjacent_panels and panel.standard_paint_refinish_hours > 0 and panel.adjacent_panels:
+            for adj_id in panel.adjacent_panels[:2]:
+                adj_panel = PANEL_CATALOG.get(adj_id)
+                if adj_panel and adj_panel.standard_paint_refinish_hours > 0:
+                    blend_hours = round(adj_panel.standard_paint_refinish_hours * 0.5, 1)
+                    paint_labor_hours += blend_hours
+                    paint_materials_hours += blend_hours
+                    line_items.append(
+                        EstimateLineItem(
+                            category="PAINT_LABOR",
+                            description=f"Adjacent blend: {adj_panel.name} (Mitchell 50% Rule)",
+                            quantity_or_hours=blend_hours,
+                            rate=effective_paint_rate,
+                            subtotal=round(blend_hours * effective_paint_rate, 2),
+                        )
+                    )
+                    adjacent_blend_applied = True
+
+        # Paint Materials Surcharge
         paint_mat_subtotal = 0.0
         if paint_materials_hours > 0:
-            paint_mat_subtotal = round(paint_materials_hours * rates.paint_materials_rate_per_hour, 2)
+            paint_mat_subtotal = round(paint_materials_hours * paint_mat_rate, 2)
             line_items.append(
                 EstimateLineItem(
                     category="SUPPLIES",
                     description=f"Paint supplies (Primer, Basecoat, Clear, Abrasives)",
                     quantity_or_hours=paint_materials_hours,
-                    rate=rates.paint_materials_rate_per_hour,
+                    rate=paint_mat_rate,
                     subtotal=paint_mat_subtotal,
                 )
             )
 
-        # Environmental & EPA Disposal Fee
+        # Environmental & EPA Hazardous Waste Disposal Fee
         epa_fee = 12.00
         line_items.append(
             EstimateLineItem(
@@ -201,13 +239,13 @@ class EstimateCalculator:
         )
 
         # Totals computation
-        body_labor_subtotal = round(body_labor_hours * rates.body_labor_rate_per_hour, 2)
-        paint_labor_subtotal = round(paint_labor_hours * rates.paint_labor_rate_per_hour, 2)
+        body_labor_subtotal = round(body_labor_hours * effective_body_rate, 2)
+        paint_labor_subtotal = round(paint_labor_hours * effective_paint_rate, 2)
         fees_subtotal = epa_fee
 
-        # Tax applies to Parts + Paint Supplies (Standard US body shop rule)
+        # Sales tax applied to Parts + Supplies
         taxable_amount = parts_cost + paint_mat_subtotal
-        sales_tax = round(taxable_amount * rates.sales_tax_rate, 2)
+        sales_tax = round(taxable_amount * market.sales_tax_rate, 2)
 
         gross_total = round(
             parts_cost + body_labor_subtotal + paint_labor_subtotal + paint_mat_subtotal + fees_subtotal + sales_tax,
@@ -228,6 +266,9 @@ class EstimateCalculator:
             action_reason=reason,
             use_oem_parts=use_oem_parts,
             deductible=deductible,
+            regional_market=market.region_name,
+            zip_code=zip_code,
+            adjacent_blend_applied=adjacent_blend_applied,
             line_items=line_items,
             parts_subtotal=parts_cost,
             body_labor_subtotal=body_labor_subtotal,

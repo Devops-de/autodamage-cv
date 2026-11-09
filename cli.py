@@ -43,6 +43,8 @@ Examples:
     inspect_parser.add_argument("--sensitivity", type=float, default=0.55, help="Detection sensitivity (0.1 - 1.0)")
     inspect_parser.add_argument("--deductible", type=float, default=500.0, help="Policy deductible in USD")
     inspect_parser.add_argument("--aftermarket", action="store_true", help="Use CAPA aftermarket parts instead of OEM")
+    inspect_parser.add_argument("--zip", type=str, default=None, help="5-digit US ZIP code for local prevailing wage adjustment")
+    inspect_parser.add_argument("--blend", action="store_true", help="Apply Mitchell 50% Rule for adjacent panel paint blending")
     inspect_parser.add_argument("--pdf", type=str, default=None, help="Save appraisal report to PDF file path")
 
     args = parser.parse_args()
@@ -92,12 +94,15 @@ Examples:
             panel_id=args.panel,
             use_oem_parts=not args.aftermarket,
             deductible=args.deductible,
+            blend_adjacent_panels=args.blend,
+            zip_code=args.zip,
         )
 
         clean_reason = estimate.action_reason.replace("cm²", "cm2")
         print(f"\n{'='*60}")
         print(f"  INSURANCE APPRAISAL: {estimate.claim_id}")
         print(f"{'='*60}")
+        print(f"  Regional Market    : {estimate.regional_market}")
         print(f"  Recommended Action : {estimate.recommended_action.value}")
         print(f"  Justification      : {clean_reason}")
         print(f"{'-'*60}")

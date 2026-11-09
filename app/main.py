@@ -4,7 +4,9 @@ Provides RESTful endpoints for vehicle damage detection, actuarial calculation,
 and insurance PDF appraisal generation.
 """
 import io
-from typing import Optional
+import time
+import asyncio
+from typing import Optional, Dict, Any
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,11 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.core.cache import PerceptualImageCache
 from app.cv_engine.base import DetectionOptions
 from app.cv_engine.classical_detector import ClassicalDamageDetector
 from app.cv_engine.image_validator import VehicleImageValidator
 from app.estimator.cost_engine import EstimateCalculator, InsuranceEstimate
 from app.estimator.parts_catalog import PANEL_CATALOG
+from app.estimator.regional_rates import REGIONAL_MARKETS, lookup_regional_market
 from app.reports.pdf_generator import generate_estimate_pdf
 
 
@@ -75,6 +79,12 @@ def get_settings():
     }
 
 
+@app.get("/api/regional-markets")
+def get_regional_markets():
+    """Returns standard US regional collision repair markets and wage multipliers."""
+    return [m.model_dump() for m in REGIONAL_MARKETS.values()]
+
+
 @app.post("/api/validate-image")
 async def validate_vehicle_image(
     file: UploadFile = File(...),
@@ -84,6 +94,7 @@ async def validate_vehicle_image(
     Pre-flight validation endpoint to verify that an uploaded photo
     is a focused, legitimate automotive body panel before loading it.
     Rejects selfies, paper documents, blur, screenshots, or non-vehicle textures.
+    High-performance caching and thread-offloaded execution.
     """
     if not file.content_type.startswith("image/"):
         return {
@@ -110,8 +121,21 @@ async def validate_vehicle_image(
             "diagnostics": {},
         }
 
-    result = VehicleImageValidator.validate(contents, panel_id=panel_id)
-    return result.model_dump()
+    # Check perceptual hash cache for instantaneous sub-millisecond return
+    dhash = await asyncio.to_thread(PerceptualImageCache.compute_dhash, contents)
+    cached_val = PerceptualImageCache.get_validation(dhash, panel_id)
+    if cached_val is not None:
+        cached_val["diagnostics"]["cache_hit"] = True
+        return cached_val
+
+    # Run validation non-blockingly on Python's thread pool
+    result = await asyncio.to_thread(VehicleImageValidator.validate, contents, panel_id=panel_id)
+    result_dict = result.model_dump()
+    result_dict["diagnostics"]["cache_hit"] = False
+
+    # Store in perceptual cache
+    PerceptualImageCache.set_validation(dhash, panel_id, result_dict)
+    return result_dict
 
 
 @app.post("/api/analyze")
@@ -124,11 +148,20 @@ async def analyze_vehicle_damage(
     min_defect_area_pixels: int = Form(150),
     use_oem_parts: bool = Form(True),
     deductible: float = Form(500.00),
+    blend_adjacent_panels: bool = Form(False),
+    zip_code: Optional[str] = Form(None),
 ):
     """
     Accepts a vehicle damage photograph, applies Classical Computer Vision algorithms,
     and returns detected damage bounding boxes, visual mask, and actuarial cost estimate.
+    Features:
+    - Thread-offloaded CPU concurrency (asyncio.to_thread)
+    - Perceptual hash caching for sub-millisecond repeat queries
+    - Mitchell / CCC ONE adjacent panel paint blend rule
+    - Regional prevailing wage and tax rate adjustment via ZIP code lookup
     """
+    start_time = time.perf_counter()
+
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image (JPEG, PNG, WEBP).")
 
@@ -136,13 +169,37 @@ async def analyze_vehicle_damage(
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Empty image file received.")
 
-    # Validate image is a clear vehicle panel (rejects selfies, text documents, extreme blur)
-    validation = VehicleImageValidator.validate(contents, panel_id=panel_id)
+    # 1. Compute 64-bit Perceptual Hash
+    dhash = await asyncio.to_thread(PerceptualImageCache.compute_dhash, contents)
+
+    # 2. Check Cache
+    cached_analysis = PerceptualImageCache.get_analysis(
+        dhash=dhash,
+        panel_id=panel_id,
+        sensitivity=sensitivity,
+        use_oem=use_oem_parts,
+        deductible=deductible,
+        blend=blend_adjacent_panels,
+        zip_code=zip_code,
+    )
+    if cached_analysis is not None:
+        elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        cached_analysis["telemetry"] = {
+            "cache_hit": True,
+            "total_latency_ms": elapsed_ms,
+            "dhash": dhash,
+        }
+        return cached_analysis
+
+    # 3. Pre-flight Validation (Non-blocking thread offload)
+    validation = await asyncio.to_thread(VehicleImageValidator.validate, contents, panel_id=panel_id)
     if not validation.is_valid:
         raise HTTPException(
             status_code=400,
             detail=f"Image validation check failed: {validation.rejection_reason}"
         )
+
+    val_time = time.perf_counter()
 
     options = DetectionOptions(
         target_panel=panel_id,
@@ -153,22 +210,48 @@ async def analyze_vehicle_damage(
     )
 
     try:
-        # Run 100% Classical CV detection
-        analysis_result = detector.detect(contents, options)
+        # 4. Run Classical CV detection (Non-blocking thread offload)
+        analysis_result = await asyncio.to_thread(detector.detect, contents, options)
+        cv_time = time.perf_counter()
 
-        # Run Actuarial Cost Estimation
-        estimate = EstimateCalculator.calculate(
+        # 5. Run Actuarial Cost Estimation with Regional Rates & 50% Blend Rule
+        estimate = await asyncio.to_thread(
+            EstimateCalculator.calculate,
             analysis=analysis_result,
             panel_id=panel_id,
             use_oem_parts=use_oem_parts,
             deductible=deductible,
+            blend_adjacent_panels=blend_adjacent_panels,
+            zip_code=zip_code,
         )
+        total_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        cv_latency_ms = round((cv_time - val_time) * 1000, 2)
 
-        return {
+        response_payload = {
             "success": True,
             "analysis": analysis_result.model_dump(),
             "estimate": estimate.model_dump(),
+            "telemetry": {
+                "cache_hit": False,
+                "cv_latency_ms": cv_latency_ms,
+                "total_latency_ms": total_time_ms,
+                "dhash": dhash,
+            },
         }
+
+        # Save to perceptual cache
+        PerceptualImageCache.set_analysis(
+            dhash=dhash,
+            panel_id=panel_id,
+            sensitivity=sensitivity,
+            use_oem=use_oem_parts,
+            deductible=deductible,
+            blend=blend_adjacent_panels,
+            zip_code=zip_code,
+            data=response_payload,
+        )
+
+        return response_payload
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image processing failed: {str(e)}")
 
@@ -186,7 +269,8 @@ async def export_pdf(payload: ExportPDFRequest):
         analysis_obj = DamageAnalysisResult.model_validate(payload.analysis)
         estimate_obj = InsuranceEstimate.model_validate(payload.estimate)
 
-        pdf_bytes = generate_estimate_pdf(estimate_obj, analysis_obj)
+        # Offload PDF compilation to worker thread
+        pdf_bytes = await asyncio.to_thread(generate_estimate_pdf, estimate_obj, analysis_obj)
 
         return Response(
             content=pdf_bytes,

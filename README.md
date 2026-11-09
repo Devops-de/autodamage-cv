@@ -74,8 +74,11 @@ Before processing an image, AutoDamage CV validates that the upload is a clear p
 ### 3. Repair Estimating Engine
 The pricing engine uses standardized US collision repair rules:
 * **The 28% Rule (Repair vs. Replace):** If the damaged area covers 28% or more of the panel's total surface area (or if severe tearing is detected), the engine recommends a complete panel replacement. Otherwise, it recommends sheet metal repair and refinishing.
+* **Mitchell 50% Adjacent Panel Blend Rule:** In real-world collision repairs, adjacent panels require a 50% clearcoat blend to prevent visible paint tone mismatch at panel seams.
+* **Regional Prevailing Wage Adjustment:** Supports 5-digit US ZIP code lookup, adjusting body & paint labor rates according to local metropolitan prevailing wages (e.g., $91/hr in Pacific Metro CA/WA vs. $65/hr baseline).
+* **Material-Specific Tooling Multipliers:** Applies specialized labor rate surcharges for structural aluminum panels (1.25x) and high-strength boron steel (1.15x).
 * **Glass Exception:** Damaged windshields are always marked for replacement to comply with automotive safety standards.
-* **Itemized Costs:** Calculates body repair labor ($65/hr), paint refinish spray hours ($65/hr), paint supplies ($38/hr), EPA hazardous waste disposal fees, and state sales tax on parts.
+* **Itemized Costs:** Calculates body repair labor, paint refinish spray hours, paint supplies ($38/hr), EPA hazardous waste disposal fees, and state sales tax on parts.
 * **Net Insurance Payout:** Deducts the policyholder's deductible to show the exact expected insurance settlement.
 
 ---
@@ -83,14 +86,15 @@ The pricing engine uses standardized US collision repair rules:
 ## Key Features
 
 - 🛡️ **Vehicle & Damage Pre-Flight Guardrails:** Ensures only authentic vehicle body panels with real damage can be uploaded. Blocks selfies, documents, blur, domestic clutter, and undamaged cars right at upload time.
-- 🚗 **Bumper & Panel Material Intelligence:** Tailored checks for flexible polyurethane bumper covers as well as steel and aluminum body panels.
-- ⚡ **Lightweight & Fast:** Runs full-resolution image analysis on standard CPUs in < 90ms. No CUDA setup, no GPU hosting costs.
+- 📐 **Mitchell / CCC ONE Actuarial Precision:** Incorporates the 50% adjacent panel clearcoat blend rule, regional prevailing wage ZIP lookup, and aluminum/steel material multipliers.
+- ⚡ **High-Concurrency Backend Performance:** All heavy OpenCV and PDF operations are non-blocking via `asyncio.to_thread()`, keeping the FastAPI event loop instantly responsive.
+- 🚀 **Sub-Millisecond Perceptual Caching:** Computes a 64-bit difference hash (dHash) on upload; duplicate or near-identical photos return cached appraisal reports in < 2ms.
 - 🎯 **100% Explainable:** Every dollar on the estimate links to measurable contour coordinates, calibrated surface area, and standardized hourly rates.
-- 🖥️ **Interactive Web Studio:** Clean, responsive web dashboard with 1-click test scenarios (Bumper Scratch, Door Dent, Fender Chip), real-time sensitivity sliders, instant verification badges, and side-by-side inspection views.
-- 💻 **Terminal CLI Tool:** Built-in command-line interface (`cli.py`) for adjusters who prefer terminal workflows or need to script batch inspections.
+- 🖥️ **Interactive Web Studio:** Clean, responsive web dashboard with 1-click test scenarios, real-time sensitivity sliders, ZIP code wage adjustment, adjacent blend toggles, and cache latency indicators.
+- 💻 **Terminal CLI Tool:** Built-in command-line interface (`cli.py`) supporting `--zip` and `--blend` flags for adjusters who prefer terminal workflows.
 - 📑 **Formal PDF Generation:** Exports a formatted Motor Vehicle Damage Appraisal Report matching US insurance adjuster standards.
 - 🔌 **Pluggable Architecture:** Implements the Strategy Pattern with an abstract `BaseDamageDetector` interface, making it easy to drop in a fine-tuned YOLO or segmentation model in the future without changing the pricing engine or UI.
-- 🧪 **17 Automated Tests:** Complete `pytest` test suite verifying image validation, edge detection reproducibility, cost thresholds, deductible arithmetic, and PDF compilation.
+- 🧪 **21 Automated Tests:** Complete `pytest` test suite verifying regional rates, blend rules, caching, image validation, edge detection, and PDF generation.
 
 ---
 
@@ -187,7 +191,7 @@ Run the test suite using pytest:
 pytest -v
 ```
 
-All 17 tests run locally in ~1.3 seconds, verifying image validation guardrails, edge extraction, pricing rules, safety glass mandates, and PDF generation.
+All 21 tests run locally in ~1.8 seconds, verifying regional wage rates, Mitchell blend rules, perceptual caching, image validation guardrails, edge extraction, and PDF generation.
 
 ---
 

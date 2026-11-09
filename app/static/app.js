@@ -222,6 +222,8 @@ async function executeInspection() {
   formData.append('detect_dents', document.getElementById('check-dents').checked);
   formData.append('use_oem_parts', document.getElementById('parts-tier').value === 'true');
   formData.append('deductible', document.getElementById('deductible-input').value);
+  formData.append('blend_adjacent_panels', document.getElementById('blend-select').value === 'true');
+  formData.append('zip_code', document.getElementById('zip-input').value.trim());
 
   try {
     const res = await fetch('/api/analyze', {
@@ -238,7 +240,7 @@ async function executeInspection() {
     currentAnalysis = data.analysis;
     currentEstimate = data.estimate;
 
-    renderResults(currentAnalysis, currentEstimate);
+    renderResults(currentAnalysis, currentEstimate, data.telemetry);
     switchTab('annotated');
   } catch (err) {
     alert(`Error running CV analysis: ${err.message}`);
@@ -247,11 +249,24 @@ async function executeInspection() {
   }
 }
 
-function renderResults(analysis, estimate) {
+function renderResults(analysis, estimate, telemetry) {
   // 1. Show Telemetry Bar
   document.getElementById('telemetry-bar').classList.remove('hidden');
   document.getElementById('telemetry-defects').textContent = `${analysis.items_detected.length} items`;
   document.getElementById('telemetry-area').textContent = `${analysis.total_damaged_area_cm2.toFixed(1)} cm² (${estimate.panel_damage_percentage}%)`;
+  
+  const regionEl = document.getElementById('telemetry-region');
+  if (regionEl) {
+    regionEl.textContent = estimate.regional_market || 'US Baseline';
+  }
+
+  const latencyEl = document.getElementById('telemetry-latency');
+  if (latencyEl) {
+    const isHit = telemetry && telemetry.cache_hit;
+    const latMs = telemetry && telemetry.total_latency_ms ? `${telemetry.total_latency_ms} ms` : '< 85 ms';
+    latencyEl.textContent = `${latMs} ${isHit ? '(Cache Hit ⚡)' : '(Thread Pool)'}`;
+    latencyEl.className = isHit ? 'font-bold text-sky-400 text-sm' : 'font-bold text-emerald-400 text-sm';
+  }
 
   const severityEl = document.getElementById('telemetry-severity');
   severityEl.textContent = analysis.overall_severity;
