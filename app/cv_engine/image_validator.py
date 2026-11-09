@@ -2,7 +2,8 @@
 Vehicle and Panel Image Validation Filter.
 Applies classical computer vision heuristics (NO AI / NO ML) to verify that
 an uploaded photograph is a valid, focused vehicle panel suitable for appraisal,
-and rejects non-automotive images (selfies, documents, extreme blur, indoor objects).
+and rejects non-automotive images (selfies, documents, extreme blur, indoor objects,
+or photos lacking automotive damage).
 """
 from typing import Tuple, Dict, Any, Optional
 import cv2
@@ -17,26 +18,27 @@ class ValidationResult(BaseModel):
     skin_tone_ratio: float
     surface_smoothness_ratio: float
     brightness_mean: float
+    defect_count: int = 0
     diagnostics: Dict[str, Any] = {}
 
 
 class VehicleImageValidator:
     """
     Multi-stage classical CV filter to ensure uploaded photos are clear,
-    focused, and plausible automotive body panels.
+    focused, and plausible automotive body panels with visible damage.
     """
 
     # Minimum Laplacian variance for focus (below this is blurry)
-    MIN_BLUR_THRESHOLD = 60.0
+    MIN_BLUR_THRESHOLD = 35.0
 
     # Max allowed ratio of human skin tone pixels (above this is likely a person/selfie)
-    MAX_SKIN_RATIO = 0.22
+    MAX_SKIN_RATIO = 0.20
 
     # Minimum dimension in pixels
-    MIN_DIMENSION = 250
+    MIN_DIMENSION = 200
 
     @classmethod
-    def validate(cls, image_bytes: bytes) -> ValidationResult:
+    def validate(cls, image_bytes: bytes, panel_id: Optional[str] = None) -> ValidationResult:
         np_arr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
@@ -48,10 +50,19 @@ class VehicleImageValidator:
                 skin_tone_ratio=0.0,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=0.0,
+                defect_count=0,
             )
 
         h, w = img.shape[:2]
         total_pixels = h * w
+
+        # Format user-friendly panel label
+        panel_label = (
+            "Front Bumper Cover" if panel_id == "FRONT_BUMPER"
+            else "Rear Bumper Cover" if panel_id == "REAR_BUMPER"
+            else panel_id.replace("_", " ").title() if panel_id
+            else "Vehicle Body Panel"
+        )
 
         # 1. Resolution Check
         if h < cls.MIN_DIMENSION or w < cls.MIN_DIMENSION:
@@ -62,13 +73,14 @@ class VehicleImageValidator:
                 skin_tone_ratio=0.0,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=0.0,
+                defect_count=0,
             )
 
         # 2. Lighting & Exposure Check
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         brightness_mean = float(np.mean(gray))
 
-        if brightness_mean < 18.0:
+        if brightness_mean < 15.0:
             return ValidationResult(
                 is_valid=False,
                 rejection_reason="Photo is too dark to inspect vehicle damage. Please upload a photo taken with adequate lighting.",
@@ -76,6 +88,7 @@ class VehicleImageValidator:
                 skin_tone_ratio=0.0,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=brightness_mean,
+                defect_count=0,
             )
 
         if brightness_mean > 248.0:
@@ -86,26 +99,29 @@ class VehicleImageValidator:
                 skin_tone_ratio=0.0,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=brightness_mean,
+                defect_count=0,
             )
 
-        # 3. Document / White Paper / Screenshot Rejection Filter
-        # Documents have high proportion of near-white pixels (> 230) and discrete line edges
+        # 3. Document / White Paper / Invoice Rejection Filter
+        # Paper sheets have flat white backgrounds (low std deviation in white regions)
         white_pixels = np.count_nonzero(gray > 230)
         white_ratio = white_pixels / total_pixels
-        if white_ratio > 0.65:
-            return ValidationResult(
-                is_valid=False,
-                rejection_reason="Image appears to be a paper document, screenshot, or invoice. Please upload a photograph of the physical vehicle panel.",
-                blur_score=0.0,
-                skin_tone_ratio=0.0,
-                surface_smoothness_ratio=0.0,
-                brightness_mean=brightness_mean,
-            )
+        if white_ratio > 0.75:
+            white_std = float(np.std(gray[gray > 230]))
+            if white_std < 4.0:
+                return ValidationResult(
+                    is_valid=False,
+                    rejection_reason="Image appears to be a paper document, screenshot, or invoice. Please upload a photograph of the physical vehicle panel.",
+                    blur_score=0.0,
+                    skin_tone_ratio=0.0,
+                    surface_smoothness_ratio=0.0,
+                    brightness_mean=brightness_mean,
+                    defect_count=0,
+                )
 
         # 4. Human / Selfie Rejection Filter (YCrCb Skin Tone Segmentation)
         # Automotive panels do not consist of human skin. Rejects selfies, portraits, and people.
         ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
-        # Standard human skin chrominance bounding box in YCrCb
         skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
         skin_pixels = np.count_nonzero(skin_mask)
         skin_ratio = float(skin_pixels / total_pixels)
@@ -118,11 +134,19 @@ class VehicleImageValidator:
                 skin_tone_ratio=skin_ratio,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=brightness_mean,
+                defect_count=0,
             )
 
-        # 5. Blur & Focus Quality Check (Laplacian Variance)
+        # 5. Blur & Focus Quality Check
+        # Uses Laplacian variance combined with localized maximum Sobel edge gradient
         blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-        if blur_score < cls.MIN_BLUR_THRESHOLD:
+        sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        grad_mag = np.sqrt(sobelx**2 + sobely**2)
+        max_grad = float(np.max(grad_mag))
+        sharp_pixels = int(np.count_nonzero(grad_mag > 40))
+
+        if blur_score < cls.MIN_BLUR_THRESHOLD and (max_grad < 35.0 or sharp_pixels < 25):
             return ValidationResult(
                 is_valid=False,
                 rejection_reason="Photo is too blurry or out of focus. A clear, sharp photo is required to detect surface damage accurately.",
@@ -130,18 +154,33 @@ class VehicleImageValidator:
                 skin_tone_ratio=skin_ratio,
                 surface_smoothness_ratio=0.0,
                 brightness_mean=brightness_mean,
+                defect_count=0,
             )
 
-        # 6. Automotive Surface & Specular Uniformity Check
+        # 6. Non-Automotive Multi-color / Domestic Clutter Filter
+        # Automotive body panels feature a single uniform OEM paint color (low chrominance variance in LAB)
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        _, a_ch, b_ch = cv2.split(lab)
+        chroma_std = max(float(np.std(a_ch)), float(np.std(b_ch)))
+        if chroma_std > 26.0:
+            return ValidationResult(
+                is_valid=False,
+                rejection_reason="Image contains multi-colored indoor or domestic scene clutter. Please upload a direct photo of the vehicle body panel.",
+                blur_score=blur_score,
+                skin_tone_ratio=skin_ratio,
+                surface_smoothness_ratio=0.0,
+                brightness_mean=brightness_mean,
+                defect_count=0,
+            )
+
+        # 7. Automotive Surface Uniformity Check
         # Car panels are painted metal or molded plastic characterized by continuous base paint
         # with localized specular gloss, not high-frequency chaotic textures (like grass, carpet, or fabric).
         blurred_surface = cv2.GaussianBlur(gray, (21, 21), 0)
         surface_diff = cv2.absdiff(gray, blurred_surface)
-        # In a real car panel, the majority of the surface area is smooth base paint
         smooth_pixels = np.count_nonzero(surface_diff < 15)
         smoothness_ratio = float(smooth_pixels / total_pixels)
 
-        # Natural backgrounds like dense grass/carpet have smoothness < 0.20
         if smoothness_ratio < 0.18:
             return ValidationResult(
                 is_valid=False,
@@ -150,9 +189,46 @@ class VehicleImageValidator:
                 skin_tone_ratio=skin_ratio,
                 surface_smoothness_ratio=smoothness_ratio,
                 brightness_mean=brightness_mean,
+                defect_count=0,
+            )
+
+        # 8. Damage & Defect Presence Verification ("Related to damage part only")
+        # An appraisal photograph must capture visible surface damage (scratches, dents, cracks, or chips)
+        blurred_canny = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.Canny(blurred_canny, 35, 110)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        defect_contours = [
+            c for c in contours
+            if (cv2.contourArea(c) > 25 or cv2.arcLength(c, False) > 35)
+        ]
+        defect_count = len(defect_contours)
+
+        if defect_count == 0:
+            return ValidationResult(
+                is_valid=False,
+                rejection_reason=f"No vehicle damage or surface defect detected on this {panel_label}. Please upload a clear photo focusing directly on the damaged area.",
+                blur_score=blur_score,
+                skin_tone_ratio=skin_ratio,
+                surface_smoothness_ratio=smoothness_ratio,
+                brightness_mean=brightness_mean,
+                defect_count=0,
+            )
+
+        if defect_count > 45:
+            return ValidationResult(
+                is_valid=False,
+                rejection_reason="Image background is too noisy or cluttered (appears to be textured background, foliage, or indoor clutter). Please frame the camera directly on the vehicle damage.",
+                blur_score=blur_score,
+                skin_tone_ratio=skin_ratio,
+                surface_smoothness_ratio=smoothness_ratio,
+                brightness_mean=brightness_mean,
+                defect_count=defect_count,
             )
 
         # Validation passed
+        is_bumper = panel_id and ("BUMPER" in panel_id.upper())
+        surface_desc = "Molded Polyurethane / Automotive Plastic" if is_bumper else "Automotive Painted Steel / Aluminum"
+
         return ValidationResult(
             is_valid=True,
             rejection_reason=None,
@@ -160,9 +236,12 @@ class VehicleImageValidator:
             skin_tone_ratio=skin_ratio,
             surface_smoothness_ratio=smoothness_ratio,
             brightness_mean=brightness_mean,
+            defect_count=defect_count,
             diagnostics={
                 "resolution": f"{w}x{h}",
-                "focus_quality": "Sharp" if blur_score > 150 else "Acceptable",
-                "surface_type": "Automotive Painted Panel / Composite",
+                "target_panel": panel_label,
+                "focus_quality": "Sharp" if blur_score > 80 or max_grad > 100 else "Acceptable",
+                "surface_type": surface_desc,
+                "damage_signal": f"Detected {defect_count} surface damage defect regions",
             },
         )

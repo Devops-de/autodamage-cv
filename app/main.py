@@ -76,7 +76,10 @@ def get_settings():
 
 
 @app.post("/api/validate-image")
-async def validate_vehicle_image(file: UploadFile = File(...)):
+async def validate_vehicle_image(
+    file: UploadFile = File(...),
+    panel_id: str = Form("FRONT_BUMPER"),
+):
     """
     Pre-flight validation endpoint to verify that an uploaded photo
     is a focused, legitimate automotive body panel before loading it.
@@ -90,6 +93,7 @@ async def validate_vehicle_image(file: UploadFile = File(...)):
             "skin_tone_ratio": 0.0,
             "surface_smoothness_ratio": 0.0,
             "brightness_mean": 0.0,
+            "defect_count": 0,
             "diagnostics": {},
         }
 
@@ -102,10 +106,11 @@ async def validate_vehicle_image(file: UploadFile = File(...)):
             "skin_tone_ratio": 0.0,
             "surface_smoothness_ratio": 0.0,
             "brightness_mean": 0.0,
+            "defect_count": 0,
             "diagnostics": {},
         }
 
-    result = VehicleImageValidator.validate(contents)
+    result = VehicleImageValidator.validate(contents, panel_id=panel_id)
     return result.model_dump()
 
 
@@ -132,7 +137,7 @@ async def analyze_vehicle_damage(
         raise HTTPException(status_code=400, detail="Empty image file received.")
 
     # Validate image is a clear vehicle panel (rejects selfies, text documents, extreme blur)
-    validation = VehicleImageValidator.validate(contents)
+    validation = VehicleImageValidator.validate(contents, panel_id=panel_id)
     if not validation.is_valid:
         raise HTTPException(
             status_code=400,

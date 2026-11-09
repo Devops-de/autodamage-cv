@@ -72,3 +72,45 @@ def test_reject_undersized_image():
     result = VehicleImageValidator.validate(bytes(buf))
     assert result.is_valid is False
     assert "resolution" in result.rejection_reason.lower()
+
+
+def test_bumper_section_validation():
+    """Bumper section validation should approve realistic damaged bumper and report bumper diagnostics."""
+    with open("app/static/sample_images/sample_bumper_scratch.jpg", "rb") as f:
+        img_bytes = f.read()
+
+    result = VehicleImageValidator.validate(img_bytes, panel_id="FRONT_BUMPER")
+    assert result.is_valid is True
+    assert result.rejection_reason is None
+    assert result.defect_count > 0
+    assert "Front Bumper Cover" in result.diagnostics["target_panel"]
+    assert "Polyurethane" in result.diagnostics["surface_type"]
+
+
+def test_reject_clean_car_without_damage():
+    """Images with zero detectable damage or surface anomalies must be rejected."""
+    clean_car = np.full((400, 400, 3), (120, 120, 120), dtype=np.uint8)
+    # Add gentle smooth lighting gradient without any scratch, dent, or crack
+    for y in range(400):
+        clean_car[y, :] = min(220, 100 + int(y * 0.25))
+    _, buf = cv2.imencode(".jpg", clean_car)
+
+    result = VehicleImageValidator.validate(bytes(buf), panel_id="FRONT_BUMPER")
+    assert result.is_valid is False
+    assert result.rejection_reason is not None
+    assert ("no vehicle damage" in result.rejection_reason.lower()
+            or "defect detected" in result.rejection_reason.lower()
+            or "blurry" in result.rejection_reason.lower()
+            or "focus" in result.rejection_reason.lower())
+
+
+def test_reject_multicolor_indoor_scene():
+    """Multi-colored domestic scenes or furniture must be rejected."""
+    room = np.full((400, 400, 3), (40, 40, 180), dtype=np.uint8) # red wall
+    cv2.rectangle(room, (50, 100), (200, 300), (200, 100, 30), -1) # blue chair
+    cv2.rectangle(room, (250, 150), (380, 350), (40, 180, 50), -1) # green table
+    _, buf = cv2.imencode(".jpg", room)
+
+    result = VehicleImageValidator.validate(bytes(buf), panel_id="FRONT_BUMPER")
+    assert result.is_valid is False
+    assert "indoor" in result.rejection_reason.lower() or "clutter" in result.rejection_reason.lower()

@@ -64,6 +64,13 @@ function initEventListeners() {
     loadSamplePreset('/sample_images/sample_fender_chip.jpg', 'FRONT_FENDER_LEFT', 'Fender Chip');
   });
 
+  // Target Panel Selection Change
+  document.getElementById('panel-select').addEventListener('change', async () => {
+    if (currentFile) {
+      await handleFileSelected(currentFile);
+    }
+  });
+
   // Execute Inspection Button
   document.getElementById('btn-analyze').addEventListener('click', () => {
     if (!currentFile) {
@@ -123,6 +130,7 @@ async function handleFileSelected(file) {
   try {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('panel_id', document.getElementById('panel-select').value);
 
     const res = await fetch('/api/validate-image', {
       method: 'POST',
@@ -155,11 +163,10 @@ async function handleFileSelected(file) {
     document.getElementById('file-name-label').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
     previewInfo.classList.remove('hidden');
 
-    if (validation.diagnostics && validation.diagnostics.focus_quality) {
-      successDetails.textContent = `Approved: ${validation.diagnostics.focus_quality} focus, automotive surface verified.`;
-    } else {
-      successDetails.textContent = 'Surface texture, focus, and panel geometry approved for inspection.';
-    }
+    const panelName = validation.diagnostics && validation.diagnostics.target_panel ? validation.diagnostics.target_panel : 'Vehicle Body Panel';
+    const surfaceType = validation.diagnostics && validation.diagnostics.surface_type ? validation.diagnostics.surface_type : 'Automotive Painted Surface';
+    const defectInfo = validation.diagnostics && validation.diagnostics.damage_signal ? validation.diagnostics.damage_signal : `${validation.defect_count} damage defects detected`;
+    successDetails.textContent = `${panelName} approved: ${surfaceType}. ${defectInfo}.`;
     successBanner.classList.remove('hidden');
 
     const reader = new FileReader();
