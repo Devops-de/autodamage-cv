@@ -326,7 +326,7 @@
           </div>
 
           <!-- Bottom Detection Telemetry Strip -->
-          <div id="telemetry-bar" class="hidden border-t border-slate-800 bg-slate-900/60 p-4 text-xs grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div id="telemetry-bar" class="hidden border-t border-slate-800 bg-slate-900/60 p-4 text-xs grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div>
               <span class="text-slate-400 block text-[11px]">Defects Found</span>
               <span id="telemetry-defects" class="font-bold text-white text-sm">0 items</span>
@@ -334,6 +334,10 @@
             <div>
               <span class="text-slate-400 block text-[11px]">Total Damage Surface</span>
               <span id="telemetry-area" class="font-bold text-sky-400 text-sm">0.0 cm²</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[11px]">Overall Severity</span>
+              <span id="telemetry-severity" class="font-bold text-emerald-400 text-sm">MINOR</span>
             </div>
             <div>
               <span class="text-slate-400 block text-[11px]">Regional Labor Market</span>
@@ -505,7 +509,7 @@
     </div>
   </div>
 
-  <script src="/app.js?v=1.2"></script>
+  <script src="/app.js?v=1.3"></script>
   <script>
     lucide.createIcons();
   </script>

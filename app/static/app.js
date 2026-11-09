@@ -251,9 +251,18 @@ async function executeInspection() {
 
 function renderResults(analysis, estimate, telemetry) {
   // 1. Show Telemetry Bar
-  document.getElementById('telemetry-bar').classList.remove('hidden');
-  document.getElementById('telemetry-defects').textContent = `${analysis.items_detected.length} items`;
-  document.getElementById('telemetry-area').textContent = `${analysis.total_damaged_area_cm2.toFixed(1)} cm² (${estimate.panel_damage_percentage}%)`;
+  const telemetryBar = document.getElementById('telemetry-bar');
+  if (telemetryBar) telemetryBar.classList.remove('hidden');
+
+  const defectsEl = document.getElementById('telemetry-defects');
+  if (defectsEl) {
+    defectsEl.textContent = `${analysis.items_detected.length} items`;
+  }
+
+  const areaEl = document.getElementById('telemetry-area');
+  if (areaEl) {
+    areaEl.textContent = `${analysis.total_damaged_area_cm2.toFixed(1)} cm² (${estimate.panel_damage_percentage}%)`;
+  }
   
   const regionEl = document.getElementById('telemetry-region');
   if (regionEl) {
@@ -269,13 +278,15 @@ function renderResults(analysis, estimate, telemetry) {
   }
 
   const severityEl = document.getElementById('telemetry-severity');
-  severityEl.textContent = analysis.overall_severity;
-  if (analysis.overall_severity === 'SEVERE') {
-    severityEl.className = 'font-bold text-rose-400 text-sm';
-  } else if (analysis.overall_severity === 'MODERATE') {
-    severityEl.className = 'font-bold text-amber-400 text-sm';
-  } else {
-    severityEl.className = 'font-bold text-emerald-400 text-sm';
+  if (severityEl) {
+    severityEl.textContent = analysis.overall_severity;
+    if (analysis.overall_severity === 'SEVERE') {
+      severityEl.className = 'font-bold text-rose-400 text-sm';
+    } else if (analysis.overall_severity === 'MODERATE') {
+      severityEl.className = 'font-bold text-amber-400 text-sm';
+    } else {
+      severityEl.className = 'font-bold text-emerald-400 text-sm';
+    }
   }
 
   // 2. Render Detected Defects List
@@ -319,54 +330,76 @@ function renderResults(analysis, estimate, telemetry) {
 
   // 3. Render Insurance Estimate Section
   const estCard = document.getElementById('estimate-card');
-  document.getElementById('claim-id-badge').textContent = estimate.claim_id;
+  const claimIdBadge = document.getElementById('claim-id-badge');
+  if (claimIdBadge) claimIdBadge.textContent = estimate.claim_id;
 
   const actionTitle = document.getElementById('action-title');
   const actionReason = document.getElementById('action-reason');
   const actionBanner = document.getElementById('action-banner');
 
   if (estimate.recommended_action === 'REPLACE_PANEL') {
-    actionTitle.textContent = 'REPLACE PANEL (Total Replacement)';
-    actionTitle.className = 'text-xl font-bold text-rose-400';
-    actionBanner.className = 'p-5 border-b border-slate-800 bg-gradient-to-r from-rose-950/40 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+    if (actionTitle) {
+      actionTitle.textContent = 'REPLACE PANEL (Total Replacement)';
+      actionTitle.className = 'text-xl font-bold text-rose-400';
+    }
+    if (actionBanner) actionBanner.className = 'p-5 border-b border-slate-800 bg-gradient-to-r from-rose-950/40 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
   } else if (estimate.recommended_action === 'REPAIR_AND_REFINISH') {
-    actionTitle.textContent = 'REPAIR & REFINISH (Standard Collision)';
-    actionTitle.className = 'text-xl font-bold text-emerald-400';
-    actionBanner.className = 'p-5 border-b border-slate-800 bg-gradient-to-r from-emerald-950/40 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+    if (actionTitle) {
+      actionTitle.textContent = 'REPAIR & REFINISH (Standard Collision)';
+      actionTitle.className = 'text-xl font-bold text-emerald-400';
+    }
+    if (actionBanner) actionBanner.className = 'p-5 border-b border-slate-800 bg-gradient-to-r from-emerald-950/40 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
   } else {
-    actionTitle.textContent = 'BUFF & POLISH ONLY (Minor Cosmetic)';
-    actionTitle.className = 'text-xl font-bold text-sky-400';
-    actionBanner.className = 'p-5 border-b border-slate-800 bg-gradient-to-r from-sky-950/40 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
+    if (actionTitle) {
+      actionTitle.textContent = 'BUFF & POLISH ONLY (Minor Cosmetic)';
+      actionTitle.className = 'text-xl font-bold text-sky-400';
+    }
+    if (actionBanner) actionBanner.className = 'p-5 border-b border-slate-800 bg-gradient-to-r from-sky-950/40 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3';
   }
-  actionReason.textContent = estimate.action_reason;
+  if (actionReason) actionReason.textContent = estimate.action_reason;
 
   // Render Line Items Table
   const tbody = document.getElementById('line-items-body');
-  tbody.innerHTML = '';
-  estimate.line_items.forEach((item) => {
-    const tr = document.createElement('tr');
-    tr.className = 'hover:bg-slate-800/30 transition';
-    tr.innerHTML = `
-      <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">${item.category}</td>
-      <td class="py-2.5 px-3 font-medium text-slate-200">${item.description}</td>
-      <td class="py-2.5 px-3 text-center text-slate-400">${item.quantity_or_hours.toFixed(1)}</td>
-      <td class="py-2.5 px-3 text-right text-slate-400">$${item.rate.toFixed(2)}</td>
-      <td class="py-2.5 px-3 text-right font-semibold text-slate-200">$${item.subtotal.toFixed(2)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+  if (tbody) {
+    tbody.innerHTML = '';
+    estimate.line_items.forEach((item) => {
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-800/30 transition';
+      tr.innerHTML = `
+        <td class="py-2.5 px-3 font-mono text-[11px] text-slate-400">${item.category}</td>
+        <td class="py-2.5 px-3 font-medium text-slate-200">${item.description}</td>
+        <td class="py-2.5 px-3 text-center text-slate-400">${item.quantity_or_hours.toFixed(1)}</td>
+        <td class="py-2.5 px-3 text-right text-slate-400">$${item.rate.toFixed(2)}</td>
+        <td class="py-2.5 px-3 text-right font-semibold text-slate-200">$${item.subtotal.toFixed(2)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
   // Financial Totals
-  document.getElementById('sum-parts').textContent = `$${estimate.parts_subtotal.toFixed(2)}`;
-  document.getElementById('sum-labor').textContent = `$${(estimate.body_labor_subtotal + estimate.paint_labor_subtotal).toFixed(2)} (${estimate.total_labor_hours} hrs)`;
-  document.getElementById('sum-supplies').textContent = `$${(estimate.paint_materials_subtotal + estimate.fees_subtotal).toFixed(2)}`;
-  document.getElementById('sum-tax').textContent = `$${estimate.sales_tax.toFixed(2)}`;
-  document.getElementById('sum-gross').textContent = `$${estimate.gross_estimate_total.toFixed(2)}`;
-  document.getElementById('sum-deductible').textContent = `- $${estimate.deductible.toFixed(2)}`;
-  document.getElementById('sum-net').textContent = `$${estimate.net_claim_payout.toFixed(2)}`;
+  const sumParts = document.getElementById('sum-parts');
+  if (sumParts) sumParts.textContent = `$${estimate.parts_subtotal.toFixed(2)}`;
 
-  estCard.classList.remove('hidden');
-  lucide.createIcons();
+  const sumLabor = document.getElementById('sum-labor');
+  if (sumLabor) sumLabor.textContent = `$${(estimate.body_labor_subtotal + estimate.paint_labor_subtotal).toFixed(2)} (${estimate.total_labor_hours} hrs)`;
+
+  const sumSupplies = document.getElementById('sum-supplies');
+  if (sumSupplies) sumSupplies.textContent = `$${(estimate.paint_materials_subtotal + estimate.fees_subtotal).toFixed(2)}`;
+
+  const sumTax = document.getElementById('sum-tax');
+  if (sumTax) sumTax.textContent = `$${estimate.sales_tax.toFixed(2)}`;
+
+  const sumGross = document.getElementById('sum-gross');
+  if (sumGross) sumGross.textContent = `$${estimate.gross_estimate_total.toFixed(2)}`;
+
+  const sumDeductible = document.getElementById('sum-deductible');
+  if (sumDeductible) sumDeductible.textContent = `- $${estimate.deductible.toFixed(2)}`;
+
+  const sumNet = document.getElementById('sum-net');
+  if (sumNet) sumNet.textContent = `$${estimate.net_claim_payout.toFixed(2)}`;
+
+  if (estCard) estCard.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
 }
 
 function switchTab(tab) {
